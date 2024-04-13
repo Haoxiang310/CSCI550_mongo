@@ -1,0 +1,33 @@
+Metadata-Version: 2.1
+Name: mongo-ninja-python
+Version: 1.11.1.7
+Summary: UNKNOWN
+Home-page: UNKNOWN
+License: Apache 2.0
+Platform: UNKNOWN
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Programming Language :: C
+Classifier: Programming Language :: C++
+Classifier: Programming Language :: Fortran
+Classifier: Programming Language :: Python
+Classifier: Operating System :: OS Independent
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Software Development :: Build Tools
+Classifier: Typing :: Typed
+License-File: LICENSE_Apache_20
+License-File: AUTHORS.rst
+Requires-Dist: mongo-tooling-metrics (==1.0.8)
+Provides-Extra: test
+Requires-Dist: codecov (>=2.0.5) ; extra == 'test'
+Requires-Dist: coverage (>=4.2) ; extra == 'test'
+Requires-Dist: flake8 (>=3.0.4) ; extra == 'test'
+Requires-Dist: pytest (>=4.5.0) ; extra == 'test'
+Requires-Dist: pytest-cov (>=2.7.1) ; extra == 'test'
+Requires-Dist: pytest-runner (>=5.1) ; extra == 'test'
+Requires-Dist: pytest-virtualenv (>=1.7.0) ; extra == 'test'
+Requires-Dist: virtualenv (>=15.0.3) ; extra == 'test'
+
+UNKNOWN
+

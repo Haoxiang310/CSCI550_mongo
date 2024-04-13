@@ -1,0 +1,213 @@
+Metadata-Version: 2.1
+Name: gdbmongo
+Version: 0.14.0
+Summary: GDB pretty printers and commands for debugging the MongoDB Server
+Home-page: https://github.com/visemet/gdb-mongodb-server
+Maintainer: Max Hirschhorn
+Maintainer-email: max.hirschhorn@mongodb.com
+License: Apache License, Version 2.0
+Keywords: mongo,mongodb,gdb
+Platform: linux
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: POSIX
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Topic :: Database
+Classifier: Topic :: Database :: Database Engines/Servers
+Classifier: Topic :: Software Development :: Debuggers
+Requires-Python: >=3.9
+Description-Content-Type: text/x-rst
+License-File: LICENSE
+
+==================
+gdb-mongodb-server
+==================
+
+About
+=====
+
+The *gdbmongo* package contains GDB pretty printers and commands for
+debugging the MongoDB Server. Its primary target audience is MongoDB
+employees.
+
+Motivation
+----------
+
+The *gdbmongo* package is mostly born out of joy from tinkering with
+low-level constructs while writing GDB pretty printers. There are a few
+explicit areas for what it aims to achieve:
+
+1. GDB pretty printers and commands which only work against live MongoDB
+   processes are of limited value to the Sharding team. This is because
+   very rarely does the hang analyzer actually have enough time in
+   Evergreen to successfully attach to each of the processes. Only by
+   good luck can it happen to have attached to the problematic one.
+   GDB pretty printers and commands which are implemented by walking
+   in-memory data structures and not by executing C++ code **can run
+   against core dumps** and are therefore more widely applicable.
+
+2. There are new versions of the MongoDB Server being released every
+   quarter and every year. Each new git branch fragments the tooling for
+   testing the server. It can cause development on older branches to
+   feel foreign and awkward because so many new enhancements were made
+   in the meantime. Flipping the model so there's **a single version
+   which attempts to work with all supported MongoDB versions** can
+   potentially enable more things to "just work." Another way to think
+   about it is that the new GDB pretty printers and commands may not be
+   getting built for new MongoDB Server functionality and instead may be
+   getting built for a newly-recognized debugging need.
+
+Installation
+============
+
+The *gdbmongo* package must be loaded into the Python installation that
+the GDB process is running. In particular, launching ``gdb`` from within
+a Python virtual environment won't give the GDB process access to the
+Python packages defined within the virtual environment. This is because
+``gdb`` is dynamically linked against *libpython* and therefore always
+uses the site-packages of the base installation.
+
+Adding the following snippet to a .gdbinit file will cause ``gdb`` at
+launch time to attempt to install the *gdbmongo* package if it isn't
+already installed.
+
+.. code-block:: python
+
+    # In your ~/.gdbinit:
+    python
+    try:
+        import gdbmongo
+    except ImportError:
+        import sys
+        if sys.prefix.startswith("/opt/mongodbtoolchain/"):
+            import subprocess
+            subprocess.run([sys.prefix + "/bin/python3", "-m", "pip", "install", "gdbmongo"], check=True)
+            import gdbmongo
+        else:
+            import warnings
+            warnings.warn("Not attempting to install gdbmongo into non MongoDB toolchain Python")
+
+    if "gdbmongo" in dir():
+        gdbmongo.register_printers()
+    end
+
+If you don't plan to use the GDB pretty printers defined in the
+mongodb/mongo repository then you may want to consider registering some
+of the other printers defined by the *gdbmongo* package.
+
+.. pull-quote::
+
+    register_printers(\*, essentials=True, stdlib=False, abseil=False, boost=False, mongo_extras=False)
+        Register the pretty printers defined by the gdbmongo package with GDB itself.
+
+        The pretty printer collections other than gdbmongo-essentials are defaulted to off to avoid
+        conflicting with the pretty printers defined in the mongodb/mongo repository.
+
+Usage
+=====
+
+The *gdbmongo* package is a nascent GDB extension and quite limited in
+what it can do right now. But, if you're looking to dump the contents of
+the global ``LockManager`` in a core dump, then you can run the
+following commands:
+
+.. code-block:: python
+
+    (gdb) python lock_mgr = gdbmongo.LockManagerPrinter.from_global()
+    (gdb) python print(lock_mgr.val)
+
+Changelog
+=========
+
+0.14.0 (2023-09-30)
+-------------------
+
+* Include OperationContext* in output for LockManager dump.
+
+0.13.0 (2023-09-29)
+-------------------
+
+* Include thread's name and number in output for LockManager dump.
+* Fix detecting compiler version when cross-platform debugging.
+
+0.12.0 (2023-09-22)
+-------------------
+
+* Support displaying thread names in core dump of MongoDB 4.4, 5.0, and 6.0.
+
+0.11.0 (2023-09-16)
+-------------------
+
+* Support displaying contents of partitions within CursorManager.
+
+0.10.0 (2023-09-03)
+-------------------
+
+* Support dumping LockManager from core dump of MongoDB 7.1.
+
+0.9.0 (2023-08-26)
+------------------
+
+* Support dumping LockManager from core dump of MongoDB 7.0.
+
+0.8.1 (2023-03-04)
+------------------
+
+* Fix two Python exceptions from thread names logic when no program or core dump was loaded.
+* Fix boost::optional pretty printer for scalar types.
+
+0.8.0 (2023-02-04)
+------------------
+
+* Always register gdbmongo pretty printers with GDB itself but continue defaulting them to off.
+* Support displaying thread names in core dump of MongoDB 6.2.
+
+0.7.0 (2022-12-24)
+------------------
+
+* Support binaries built with MongoDB v4 toolchain.
+
+0.6.0 (2022-11-18)
+------------------
+
+* Support dumping LockManager from core dump of MongoDB 6.2.
+* Fix resource type names in output of MongoDB 4.4.15, 5.0.10, and 6.0.0.
+
+0.5.1 (2022-08-25)
+------------------
+
+* Fix detecting MongoDB toolchain from --install-action=hardlink executables.
+
+0.5.0 (2022-07-31)
+------------------
+
+* Format BSON binary subtype 4 as UUID.
+* Include ErrorExtraInfo in output for Status and StatusWith<T>.
+
+0.4.0 (2022-04-09)
+------------------
+
+* Support detecting libstdc++ version in MongoDB binaries back to 4.2.0 and 4.4.0.
+* Support decoding BSONObjs even when they contain dates exceeding datetime.MAXYEAR (= 9999).
+
+0.3.0 (2022-03-26)
+------------------
+
+* Include database name in dump of DatabaseShardingState ResourceMutexes.
+* Avoid truncating namespace strings in LockManager dump.
+
+0.2.0 (2022-03-05)
+------------------
+
+* Support dumping LockManager from core dump of MongoDB 4.2, 4.4, and 5.0.
+
+0.1.0 (2022-02-26)
+------------------
+
+* Initial release.
+* Support dumping LockManager from core dump of MongoDB 5.3.

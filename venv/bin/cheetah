@@ -1,0 +1,3 @@
+#!/Users/akina/Desktop/mongo/venv/bin/python
+from Cheetah.CheetahWrapper import _cheetah
+_cheetah()

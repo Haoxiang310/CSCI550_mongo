@@ -1,0 +1,178 @@
+# Copyright (C) 2019-present MongoDB, Inc.
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the Server Side Public License, version 1,
+# as published by MongoDB, Inc.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# Server Side Public License for more details.
+#
+# You should have received a copy of the Server Side Public License
+# along with this program. If not, see
+# <http://www.mongodb.com/licensing/server-side-public-license>.
+#
+# As a special exception, the copyright holders give permission to link the
+# code of portions of this program with the OpenSSL library under certain
+# conditions as described in each individual source file and distribute
+# linked combinations including the program with the OpenSSL library. You
+# must comply with the Server Side Public License in all respects for
+# all of the code used other than as permitted herein. If you modify file(s)
+# with this exception, you may extend this exception to your version of the
+# file(s), but you are not obligated to do so. If you do not wish to do so,
+# delete this exception statement from your version. If you delete this
+# exception statement from all source files in the program, then also delete
+# it in the license file.
+#
+
+global:
+    cpp_namespace: "mongo"
+    cpp_includes:
+        - "mongo/bson/bson_depth.h"
+
+server_parameters:
+    notablescan:
+        # NOT recommended for production use.
+        description: >-
+            Whether all queries must use indexes.
+            If true, MongoDB will not execute queries that require a table scan and will return an error.
+        set_at: [ startup, runtime ]
+        cpp_varname: 'storageGlobalParams.noTableScan'
+    syncdelay:
+        # In almost every situation you should not set this value and use the default setting.
+        description: >-
+            Interval in seconds between fsync operations where mongod flushes its
+            working memory to disk. By default, mongod flushes memory to disk every 60 seconds.
+        set_at: [ startup, runtime ]
+        cpp_varname: 'storageGlobalParams.syncdelay'
+        validator:
+            gte: 0.0
+            lte: { expr: 'StorageGlobalParams::kMaxSyncdelaySecs' }
+    journalCommitInterval:
+        description: 'Number of milliseconds between journal commits'
+        set_at: [ startup, runtime ]
+        cpp_varname: 'storageGlobalParams.journalCommitIntervalMs'
+        validator:
+            gte: 1
+            lte: { expr: 'StorageGlobalParams::kMaxJournalCommitIntervalMs' }
+    takeUnstableCheckpointOnShutdown:
+        description: 'Take unstable checkpoint on shutdown'
+        cpp_vartype: bool
+        cpp_varname: gTakeUnstableCheckpointOnShutdown
+        set_at: startup
+        default: false
+    operationMemoryPoolBlockInitialSizeKB:
+        description: 'Initial block size in KB for the per operation temporary object memory pool'
+        set_at: [ startup, runtime ]
+        cpp_vartype: AtomicWord<int32_t>
+        cpp_varname: gOperationMemoryPoolBlockInitialSizeKB
+        default: 1
+        validator:
+            gte: 1
+    operationMemoryPoolBlockMaxSizeKB:
+        description: 'Maximum block size in KB for the per operation temporary object memory pool'
+        set_at: [ startup, runtime ]
+        cpp_vartype: AtomicWord<int32_t>
+        cpp_varname: gOperationMemoryPoolBlockMaxSizeKB
+        default: 2048
+        validator:
+            gte: 1
+
+    indexMaxNumGeneratedKeysPerDocument:
+        description: 'Maximum number of index keys a single document is allowed to generate'
+        set_at: [ startup ]
+        cpp_vartype: int32_t
+        cpp_varname: gIndexMaxNumGeneratedKeysPerDocument
+        default: 100000
+        validator:
+            gte: 200
+
+    storageGlobalParams.directoryperdb:
+        description: 'Read-only view of directory per db config parameter'
+        set_at: 'readonly'
+        cpp_class:
+            name: StorageDirectoryPerDbParameter
+
+    timeseriesValidateCompressedBuckets:
+        description: 'Validate that there is no data loss before committing compressed timeseries buckets'
+        set_at: [ startup, runtime ]
+        cpp_vartype: AtomicWord<bool>
+        cpp_varname: gValidateTimeseriesCompression
+        default: true
+
+    roundtripBsonColumnOnValidate:
+        description: 'Roundtrips collections content to BSONColumn to verify that we can compress/decompress without data loss.'
+        set_at: startup
+        cpp_vartype: bool
+        cpp_varname: gRoundtripBsonColumnOnValidate
+        default: false
+    maintainValidCursorsAcrossSBEYieldandReadCommands:
+        description: "Enable retaining valid cursor across SBE query yield and getMore"
+        set_at: startup
+        cpp_varname: gYieldingSupportForSBE
+        cpp_vartype: bool
+        default: false
+
+    skipDroppingHashedShardKeyIndex:
+        description: >-
+            Skips dropping hashed shard key supporting indexes when calling dropIndexes with the '*' parameter. Used for testing purposes.
+        set_at: [ startup, runtime ]
+        cpp_vartype: bool
+        cpp_varname: skipDroppingHashedShardKeyIndex
+        default: false
+
+feature_flags:
+    featureFlagClusteredIndexes:
+        description: "When enabled, support non time-series collections with clustered indexes"
+        cpp_varname: feature_flags::gClusteredIndexes
+        default: true
+        version: 5.3
+    featureFlagTimeseriesUpdatesAndDeletes:
+        description: "When enabled, support for updates and deletes on time-series collections"
+        cpp_varname: feature_flags::gTimeseriesUpdatesAndDeletes
+        default: true
+        version: 5.0
+    featureFlagTimeseriesMetricIndexes:
+        description: "When enabled, support secondary indexes on time-series measurements"
+        cpp_varname: feature_flags::gTimeseriesMetricIndexes
+        default: true
+        version: 6.0
+    featureFlagTimeseriesBucketCompression:
+        description: "Enable bucket compression on time-series collections"
+        cpp_varname: feature_flags::gTimeseriesBucketCompression
+        default: true
+        version: 5.2
+    featureFlagCollModIndexUnique:
+        description: "When enabled, collMod supports making an index unique"
+        cpp_varname: feature_flags::gCollModIndexUnique
+        default: true
+        version: 6.0
+    featureFlagCommandsAcceptCollectionUUID:
+        description: "When enabled, support specifying collection UUID for commands"
+        cpp_varname: feature_flags::gCommandsAcceptCollectionUUID
+        default: true
+        version: 6.0
+    featureFlagSelectiveBackup:
+        description: "When enabled, support selective backups and restores on collections"
+        cpp_varname: feature_flags::gSelectiveBackup
+        default: true
+        version: 6.0
+    featureFlagBatchMultiDeletes:
+        description: "When enabled, support batching multi-document deletions"
+        cpp_varname: feature_flags::gBatchMultiDeletes
+        default: false
+    featureFlagDocumentSourceListCatalog:
+        description: "When enabled, allow the use of the $listCatalog aggregation stage"
+        cpp_varname: feature_flags::gDocumentSourceListCatalog
+        default: true
+        version: 6.0
+    featureFlagTimeseriesBucketCompressionWithArrays:
+        description: "Enable array compression support for time-series bucket compression"
+        cpp_varname: feature_flags::gTimeseriesBucketCompressionWithArrays
+        default: true
+        version: 6.0
+    featureFlagDerivedMetadata:
+        description: "When enabled, support storing derived collection and index metadata"
+        cpp_varname: feature_flags::gDerivedMetadata
+        default: false

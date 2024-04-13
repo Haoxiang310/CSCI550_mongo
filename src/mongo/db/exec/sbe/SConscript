@@ -1,0 +1,252 @@
+# -*- mode: python -*-
+
+Import("env")
+
+env.Library(
+    target='query_sbe_plan_stats',
+    source=[
+        'stages/plan_stats.cpp',
+        ],
+    LIBDEPS=[
+        '$BUILD_DIR/mongo/base',
+        ]
+    )
+
+env.Library(
+    target='query_sbe_values',
+    source=[
+        'values/bson.cpp',
+        'values/value.cpp',
+        'values/value_printer.cpp',
+    ],
+    LIBDEPS=[
+        '$BUILD_DIR/mongo/base',
+        '$BUILD_DIR/mongo/db/exec/js_function',
+        '$BUILD_DIR/mongo/db/fts/base_fts',
+        '$BUILD_DIR/mongo/db/index/index_access_method',
+        '$BUILD_DIR/mongo/db/query/collation/collator_interface',
+        '$BUILD_DIR/mongo/db/query/datetime/date_time_support',
+        '$BUILD_DIR/mongo/db/query/query_index_bounds',
+        '$BUILD_DIR/mongo/db/storage/key_string',
+        '$BUILD_DIR/mongo/util/regex_util',
+    ]
+)
+
+sbeEnv = env.Clone()
+sbeEnv.InjectThirdParty(libraries=['snappy'])
+sbeEnv.Library(
+    target='query_sbe',
+    source=[
+        'expressions/expression.cpp',
+        'size_estimator.cpp',
+        'util/debug_print.cpp',
+        'util/spilling.cpp',
+        'util/stage_results_printer.cpp',
+        'values/sbe_pattern_value_cmp.cpp',
+        'values/slot.cpp',
+        'values/slot_printer.cpp',
+        'vm/arith.cpp',
+        'vm/datetime.cpp',
+        'vm/vm.cpp',
+        ],
+    LIBDEPS=[
+        '$BUILD_DIR/mongo/base',
+        '$BUILD_DIR/mongo/db/mongohasher',
+        '$BUILD_DIR/mongo/db/storage/record_store_base',
+        '$BUILD_DIR/third_party/shim_snappy',
+        'query_sbe_values',
+        ],
+    LIBDEPS_PRIVATE=[
+        '$BUILD_DIR/mongo/db/bson/dotted_path_support',
+        '$BUILD_DIR/mongo/db/sorter/sorter_idl',
+        '$BUILD_DIR/mongo/db/sorter/sorter_stats',
+    ],
+)
+
+sbeEnv.Library(
+    target='query_sbe_stages',
+    source=[
+        'stages/branch.cpp',
+        'stages/bson_scan.cpp',
+        'stages/check_bounds.cpp',
+        'stages/co_scan.cpp',
+        'stages/exchange.cpp',
+        'stages/hash_agg.cpp',
+        'stages/hash_join.cpp',
+        'stages/hash_lookup.cpp',
+        'stages/limit_skip.cpp',
+        'stages/loop_join.cpp',
+        'stages/makeobj.cpp',
+        'stages/merge_join.cpp',
+        'stages/project.cpp',
+        'stages/sort.cpp',
+        'stages/sorted_merge.cpp',
+        'stages/spool.cpp',
+        'stages/traverse.cpp',
+        'stages/union.cpp',
+        'stages/unique.cpp',
+        'stages/unwind.cpp',
+        ],
+    LIBDEPS=[
+        '$BUILD_DIR/mongo/base',
+        '$BUILD_DIR/mongo/db/concurrency/lock_manager',
+        '$BUILD_DIR/mongo/db/exec/js_function',
+        '$BUILD_DIR/mongo/db/exec/scoped_timer',
+        '$BUILD_DIR/mongo/db/query/plan_yield_policy',
+        '$BUILD_DIR/mongo/db/query/query_index_bounds',
+        '$BUILD_DIR/mongo/db/service_context',
+        '$BUILD_DIR/mongo/db/stats/resource_consumption_metrics',
+        '$BUILD_DIR/mongo/db/storage/encryption_hooks',
+        '$BUILD_DIR/mongo/db/storage/index_entry_comparison',
+        '$BUILD_DIR/mongo/util/concurrency/thread_pool',
+        '$BUILD_DIR/third_party/shim_snappy',
+        'query_sbe_plan_stats',
+        'query_sbe_values',
+        ],
+    LIBDEPS_PRIVATE=[
+        '$BUILD_DIR/mongo/db/bson/dotted_path_support',
+        '$BUILD_DIR/mongo/db/sorter/sorter_idl',
+        '$BUILD_DIR/mongo/db/sorter/sorter_stats',
+        'query_sbe',
+        'query_sbe_storage',
+         ]
+    )
+
+env.Library(
+    target='query_sbe_storage',
+    source=[
+        'stages/collection_helpers.cpp',
+        'stages/column_scan.cpp',
+        'stages/ix_scan.cpp',
+        'stages/scan.cpp',
+        ],
+    LIBDEPS=[
+        '$BUILD_DIR/mongo/db/db_raii',
+        '$BUILD_DIR/mongo/db/index/index_access_method',
+        '$BUILD_DIR/mongo/db/storage/execution_context',
+        'query_sbe'
+        ]
+    )
+
+env.Library(
+    target='query_sbe_abt',
+    source=[
+        'abt/abt_lower.cpp',
+        ],
+    LIBDEPS=[
+        '$BUILD_DIR/mongo/db/query/optimizer/optimizer',
+        'query_sbe',
+        'query_sbe_stages',
+        'query_sbe_storage',
+        ]
+    )
+
+env.Library(
+    target='sbe_plan_stage_test',
+    source=[
+        'sbe_plan_stage_test.cpp',
+    ],
+    LIBDEPS=[
+        '$BUILD_DIR/mongo/db/query/sbe_stage_builder_helpers',
+        '$BUILD_DIR/mongo/unittest/unittest',
+        'query_sbe',
+        'query_sbe_stages',
+    ],
+    LIBDEPS_PRIVATE=[
+        '$BUILD_DIR/mongo/db/auth/authmocks',
+        '$BUILD_DIR/mongo/db/service_context_d_test_fixture',
+        '$BUILD_DIR/mongo/db/service_context_test_fixture',
+    ],
+)
+
+env.CppUnitTest(
+    target='db_sbe_test',
+    source=[
+        'expressions/sbe_bson_size_test.cpp',
+        'expressions/sbe_coerce_to_string_test.cpp',
+        'expressions/sbe_concat_test.cpp',
+        'expressions/sbe_date_add_test.cpp',
+        'expressions/sbe_date_diff_test.cpp',
+        'expressions/sbe_date_to_parts_test.cpp',
+        'expressions/sbe_day_of_expressions_test.cpp',
+        'expressions/sbe_extract_sub_array_builtin_test.cpp',
+        'expressions/sbe_get_element_builtin_test.cpp',
+        'expressions/sbe_index_of_test.cpp',
+        'expressions/sbe_is_array_empty_builtin_test.cpp',
+        'expressions/sbe_is_member_builtin_test.cpp',
+        'expressions/sbe_iso_date_to_parts_test.cpp',
+        'expressions/sbe_ks_builtin_test.cpp',
+        'expressions/sbe_lambda_test.cpp',
+        'expressions/sbe_mod_expression_test.cpp',
+        'expressions/sbe_new_array_from_range_builtin_test.cpp',
+        'expressions/sbe_regex_test.cpp',
+        'expressions/sbe_replace_one_expression_test.cpp',
+        'expressions/sbe_reverse_array_builtin_test.cpp',
+        'expressions/sbe_runtime_environment_test.cpp',
+        'expressions/sbe_set_expressions_test.cpp',
+        'expressions/sbe_shard_filter_builtin_test.cpp',
+        'expressions/sbe_to_upper_to_lower_test.cpp',
+        'expressions/sbe_trigonometric_expressions_test.cpp',
+        'expressions/sbe_trunc_builtin_test.cpp',
+        'expressions/sbe_ts_second_ts_increment_test.cpp',
+        'sbe_column_scan_test.cpp',
+        'sbe_filter_test.cpp',
+        'sbe_hash_agg_test.cpp',
+        'sbe_hash_join_test.cpp',
+        'sbe_hash_lookup_test.cpp',
+        'sbe_key_string_test.cpp',
+        'sbe_limit_skip_test.cpp',
+        'sbe_loop_join_test.cpp',
+        'sbe_math_builtins_test.cpp',
+        'sbe_merge_join_test.cpp',
+        'sbe_mkobj_test.cpp',
+        'sbe_numeric_convert_test.cpp',
+        'sbe_plan_size_test.cpp',
+        'sbe_sort_test.cpp',
+        'sbe_sorted_merge_test.cpp',
+        'sbe_spool_test.cpp',
+        'sbe_test.cpp',
+        'sbe_trial_run_tracker_test.cpp',
+        'sbe_unique_test.cpp',
+        'util/stage_results_printer_test.cpp',
+        'values/sbe_pattern_value_cmp_test.cpp',
+        'values/slot_printer_test.cpp',
+        'values/value_serialization_test.cpp',
+        "values/value_test.cpp",
+        'values/write_value_to_stream_test.cpp'
+    ],
+    LIBDEPS=[
+        '$BUILD_DIR/mongo/db/auth/authmocks',
+        '$BUILD_DIR/mongo/db/concurrency/lock_manager',
+        '$BUILD_DIR/mongo/db/query/collation/collator_interface_mock',
+        '$BUILD_DIR/mongo/db/service_context_d_test_fixture',
+        '$BUILD_DIR/mongo/db/service_context_test_fixture',
+        'sbe_plan_stage_test',
+    ],
+)
+
+env.Library(
+    target='sbe_abt_test_util',
+    source=[
+        'abt/sbe_abt_test_util.cpp',
+        ],
+    LIBDEPS=[
+            "$BUILD_DIR/mongo/db/auth/authmocks",
+            '$BUILD_DIR/mongo/db/query/query_test_service_context',
+            '$BUILD_DIR/mongo/db/query_exec',
+            '$BUILD_DIR/mongo/db/service_context_test_fixture',
+            'query_sbe_abt',
+        ]
+    )
+
+env.CppUnitTest(
+    target='sbe_abt_test',
+    source=[
+        'abt/sbe_abt_diff_test.cpp',
+        'abt/sbe_abt_test.cpp',
+    ],
+    LIBDEPS=[
+        '$BUILD_DIR/mongo/unittest/unittest',
+        'sbe_abt_test_util'
+    ],
+)

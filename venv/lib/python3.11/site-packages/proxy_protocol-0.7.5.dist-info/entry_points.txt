@@ -1,0 +1,4 @@
+[console_scripts]
+proxyprotocol-echo = proxyprotocol.server.echo:main
+proxyprotocol-server = proxyprotocol.server.main:main
+

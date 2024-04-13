@@ -1,0 +1,320 @@
+# Copyright (C) 2021-present MongoDB, Inc.
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the Server Side Public License, version 1,
+# as published by MongoDB, Inc.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# Server Side Public License for more details.
+#
+# You should have received a copy of the Server Side Public License
+# along with this program. If not, see
+# <http://www.mongodb.com/licensing/server-side-public-license>.
+#
+# As a special exception, the copyright holders give permission to link the
+# code of portions of this program with the OpenSSL library under certain
+# conditions as described in each individual source file and distribute
+# linked combinations including the program with the OpenSSL library. You
+# must comply with the Server Side Public License in all respects for
+# all of the code used other than as permitted herein. If you modify file(s)
+# with this exception, you may extend this exception to your version of the
+# file(s), but you are not obligated to do so. If you do not wish to do so,
+# delete this exception statement from your version. If you delete this
+# exception statement from all source files in the program, then also delete
+# it in the license file.
+#
+
+global:
+    cpp_namespace: "mongo"
+
+imports:
+    - "mongo/db/auth/auth_types.idl"
+    - "mongo/db/repl/replication_types.idl"
+    - "mongo/db/write_concern_options.idl"
+    - "mongo/idl/basic_types.idl"
+    - "mongo/rpc/metadata/client_metadata.idl"
+    - "mongo/rpc/topology_version.idl"
+
+structs:
+    HelloInternalClientField:
+        description: "Specifies min/max wire protocol versions"
+        strict: true
+        fields:
+            minWireVersion:
+                # Currently ignored
+                type: safeInt
+                default: 0
+                unstable: false
+            maxWireVersion:
+                type: safeInt
+                unstable: false
+
+    HelloLastWrite:
+        description: "Most recent op/write times for this node"
+        strict: true
+        fields:
+            opTime:
+                type: optime
+                optional: true
+                unstable: false
+            lastWriteDate:
+                type: date
+                optional: true
+                unstable: false
+            majorityOpTime:
+                type: optime
+                optional: true
+                unstable: false
+            majorityWriteDate:
+                type: date
+                optional: true
+                unstable: false
+
+    HelloCommandReply:
+        description: "Reply to 'hello' command"
+        strict: true
+        fields:
+            helloOk:
+                type: bool
+                default: true
+                unstable: false
+            clientSupportsHello:
+                type: bool
+                optional: true
+                unstable: false
+            configsvr:
+                type: safeInt
+                optional: true
+                unstable: false
+            maxBsonObjectSize:
+                type: safeInt64
+                optional: true
+                unstable: false
+            maxMessageSizeBytes:
+                type: safeInt64
+                optional: true
+                unstable: false
+            maxWriteBatchSize:
+                type: safeInt64
+                optional: true
+                unstable: false
+            localTime:
+                type: date
+                optional: true
+                unstable: false
+            logicalSessionTimeoutMinutes:
+                type: safeInt
+                optional: true
+                unstable: false
+            connectionId:
+                type: safeInt64
+                optional: true
+                unstable: false
+            minWireVersion:
+                type: safeInt
+                optional: true
+                unstable: false
+            maxWireVersion:
+                type: safeInt
+                optional: true
+                unstable: false
+            readOnly:
+                type: bool
+                optional: true
+                unstable: false
+            compression:
+                type: array<string>
+                optional: true
+                unstable: false
+            automationServiceDescriptor:
+                type: string
+                optional: true
+                unstable: false
+            saslSupportedMechs:
+                type: array<string>
+                optional: true
+                unstable: false
+            speculativeAuthenticate:
+                type: object
+                optional: true
+                unstable: false
+            msg:
+                type: string
+                optional: true
+                unstable: false
+            serviceId:
+                type: objectid
+                optional: true
+                unstable: false
+            ##
+            ## ReplicationInfo
+            ##
+            topologyVersion:
+                type: TopologyVersion
+                unstable: false
+            ismaster:
+                # Replies will contain 'ismaster' OR 'isWritablePrimary', not both
+                type: bool
+                optional: true
+                unstable: false
+            isWritablePrimary:
+                type: bool
+                optional: true
+                unstable: false
+            ##
+            ## Using ReplSets
+            ##
+            hosts:
+                type: array<string>
+                optional: true
+                unstable: false
+            passives:
+                type: array<string>
+                optional: true
+                unstable: false
+            arbiters:
+                type: array<string>
+                optional: true
+                unstable: false
+            setName:
+                type: string
+                optional: true
+                unstable: false
+            primary:
+                type: string
+                optional: true
+                unstable: false
+            secondary:
+                type: bool
+                optional: true
+                unstable: false
+            info:
+                type: string
+                optional: true
+                unstable: false
+            isreplicaset:
+                type: bool
+                optional: true
+                unstable: false
+            setVersion:
+                type: safeInt
+                optional: true
+                unstable: false
+            arbiterOnly:
+                type: bool
+                optional: true
+                unstable: false
+            passive:
+                type: bool
+                optional: true
+                unstable: false
+            hidden:
+                type: bool
+                optional: true
+                unstable: false
+            buildIndexes:
+                type: bool
+                optional: true
+                unstable: false
+            slaveDelay:
+                # Reply will contain either slaveDelay or secondaryDelaySecs, but not both.
+                type: safeInt64
+                optional: true
+                unstable: false
+            secondaryDelaySecs:
+                type: safeInt64
+                optional: true
+                unstable: false
+            tags:
+                type: object
+                optional: true
+                unstable: false
+            me:
+                type: string
+                optional: true
+                unstable: false
+            electionId:
+                type: objectid
+                optional: true
+                unstable: false
+            lastWrite:
+                type: HelloLastWrite
+                optional: true
+                unstable: false
+            isImplicitDefaultMajorityWC:
+                # Only populated on shard server.
+                type: bool
+                optional: true
+                unstable: false
+            cwwc:
+                # Only populated on shard server.
+                type: WriteConcern
+                optional: true
+                unstable: false
+
+commands:
+    hello:
+        # Aliases: 'isMaster', 'ismaster'
+        description: "Check if this server is primary for a replica set { hello: 1 }"
+        command_name: hello
+        namespace: ignored
+        cpp_name: HelloCommand
+        api_version: "1"
+        access_check:
+            none: true
+        reply_type: HelloCommandReply
+        # Most V1 commands should be strict: true but hello is special to allow for unknown fields.
+        strict: false
+        fields:
+            forShell:
+                type: safeBool
+                default: false
+                unstable: false
+            hostInfo:
+                type: string
+                default: false
+                unstable: false
+            hangUpOnStepDown:
+                type: safeBool
+                default: true
+                unstable: false
+            internalClient:
+                type: HelloInternalClientField
+                optional: true
+                unstable: false
+            client:
+                type: ClientMetadata
+                optional: true
+                unstable: false
+            topologyVersion:
+                type: TopologyVersion
+                optional: true
+                unstable: false
+            maxAwaitTimeMS:
+                type: safeInt64
+                optional: true
+                validator: { gte: 0 }
+                unstable: false
+            helloOk:
+                type: safeBool
+                optional: true
+                unstable: false
+            compression:
+                type: array<string>
+                optional: true
+                unstable: false
+            saslSupportedMechs:
+                type: 
+                    variant: [string, object_owned]
+                optional: true
+                unstable: false
+            speculativeAuthenticate:
+                type: object
+                optional: true
+                unstable: false
+            loadBalanced:
+                type: bool
+                optional: true
+                unstable: false

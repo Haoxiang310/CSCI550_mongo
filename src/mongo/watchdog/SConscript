@@ -1,0 +1,59 @@
+# -*- mode: python -*-
+
+Import('env')
+
+env.Library(
+    target='watchdog',
+    source=[
+        'watchdog.cpp',
+    ],
+    LIBDEPS=[
+        '$BUILD_DIR/mongo/base',
+        '$BUILD_DIR/mongo/db/service_context',
+        '$BUILD_DIR/mongo/db/storage/storage_options',
+    ]
+)
+
+env.Library(
+    target='watchdog_register',
+    source=[
+        'watchdog_register.cpp',
+    ],
+)
+
+env.Library(
+    target='watchdog_mongod',
+    source=[
+        'watchdog_mongod.cpp',
+        'watchdog_mongod.idl',
+    ],
+    LIBDEPS_PRIVATE=[
+        '$BUILD_DIR/mongo/db/commands/server_status',
+        '$BUILD_DIR/mongo/db/server_options_core',
+        '$BUILD_DIR/mongo/idl/server_parameter',
+        'watchdog',
+        'watchdog_register',
+    ],
+)
+
+env.Library(
+    target='watchdog_mock',
+    source=[
+        'watchdog_mock.cpp',
+    ],
+    LIBDEPS=[
+        '$BUILD_DIR/mongo/db/service_context',
+    ],
+)
+
+env.CppUnitTest(
+    target='watchdog_test',
+    source=[
+        'watchdog_test.cpp',
+    ],
+    LIBDEPS=[
+        '$BUILD_DIR/mongo/db/service_context_test_fixture',
+        '$BUILD_DIR/mongo/util/clock_source_mock',
+        'watchdog',
+    ],
+)

@@ -1,0 +1,79 @@
+# Copyright (C) 2019-present MongoDB, Inc.
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the Server Side Public License, version 1,
+# as published by MongoDB, Inc.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# Server Side Public License for more details.
+#
+# You should have received a copy of the Server Side Public License
+# along with this program. If not, see
+# <http://www.mongodb.com/licensing/server-side-public-license>.
+#
+# As a special exception, the copyright holders give permission to link the
+# code of portions of this program with the OpenSSL library under certain
+# conditions as described in each individual source file and distribute
+# linked combinations including the program with the OpenSSL library. You
+# must comply with the Server Side Public License in all respects for
+# all of the code used other than as permitted herein. If you modify file(s)
+# with this exception, you may extend this exception to your version of the
+# file(s), but you are not obligated to do so. If you do not wish to do so,
+# delete this exception statement from your version. If you delete this
+# exception statement from all source files in the program, then also delete
+# it in the license file.
+#
+
+# ChunkVersion IDL type definition
+
+global:
+    cpp_namespace: "mongo"
+    cpp_includes:
+        - "mongo/s/chunk_version.h"
+
+imports:
+    - "mongo/idl/basic_types.idl"
+
+structs:
+    ChunkVersion60Format:
+        description: New chunk version format with is parsed by 6.0 binaries but only generated
+                     starting with the 6.0 binaries when the FCV is 6.0.
+        strict: false
+        fields:
+            t:
+                type: timestamp
+                description: "Collection timestamp"
+                cpp_name: Timestamp
+            e:
+                type: objectid
+                description: "Collection epoch"
+                cpp_name: Epoch
+            v:
+                type: timestamp
+                description: "Version component"
+                cpp_name: Version
+
+types:
+    # The canonical serialisation format for ChunkVersions
+    #
+    # TODO (SERVER-65530): Use IDL directly instead of this custom parser/serialiser
+    ChunkVersion:
+        bson_serialization_type: any
+        description: An object representing a chunk version for a collection.
+        cpp_type: ChunkVersion
+        serializer: ChunkVersion::serializeToBSON
+        deserializer: ChunkVersion::fromBSONPositionalOrNewerFormat
+
+    # DO NOT add any new usages of this format, use ChunkVersion above instead
+    #
+    # Serialisation format wrongly introduced in 4.4, which needs to be kept around for backwards
+    # compatibility with certain on-disk documents and on-wire messages. It is written as:
+    #   { 0: <major/minor>, 1: <epoch>, 2: <timestamp> } (note the array encoded as a BSON object)
+    ChunkVersionArrayWronglyEncodedAsBSONObjFormat:
+        bson_serialization_type: any
+        description: An object representing a chunk version for a collection.
+        cpp_type: ChunkVersion
+        serializer: ChunkVersion::serializeToPositionalFormatWronglyEncodedAsBSON
+        deserializer: ChunkVersion::fromBSONPositionalOrNewerFormat
