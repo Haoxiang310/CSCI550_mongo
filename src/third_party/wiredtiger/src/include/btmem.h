@@ -567,14 +567,18 @@ struct __wt_page {
         struct {
             WT_REF *parent_ref; /* Parent reference */
             uint64_t split_gen; /* Generation of last split */
-
+            WT_REF *prev_leaf;
+            WT_REF *next_leaf;
             WT_PAGE_INDEX *volatile __index; /* Collated children */
         } intl;
 #undef pg_intl_parent_ref
 #define pg_intl_parent_ref u.intl.parent_ref
 #undef pg_intl_split_gen
 #define pg_intl_split_gen u.intl.split_gen
-
+#undef pg_intl_prev_leaf     // Add for prev_leaf
+#define pg_intl_prev_leaf u.intl.prev_leaf
+#undef pg_intl_next_leaf     // Add for next_leaf
+#define pg_intl_next_leaf u.intl.next_leaf
 /*
  * Macros to copy/set the index because the name is obscured to ensure the field isn't read multiple
  * times.
