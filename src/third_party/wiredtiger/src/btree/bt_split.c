@@ -7,6 +7,7 @@
  */
 
 #include "wt_internal.h"
+#include <stdio.h>
 
 #define WT_MEM_TRANSFER(from_decr, to_incr, len) \
     do {                                         \
@@ -1812,7 +1813,35 @@ __split_insert(WT_SESSION_IMPL *session, WT_REF *ref)
 
     /* The second page in the split is a new WT_REF/page pair. */
     WT_ERR(__wt_page_alloc(session, type, 0, false, &right));
+    
+    //modified
+    right->pg_intl_prev_leaf = page;  // Assign address of page
+    page->pg_intl_next_leaf = right; // Assign address of right
+    
+    printf("Page at address %p\n", (void *)&page);
+    printf("  pg_intl_next_leaf: %p\n", (void *)page->pg_intl_next_leaf);
+    printf("  pg_intl_prev_leaf: %p\n", (void *)page->pg_intl_prev_leaf);
 
+    printf("Right at address %p\n", (void *)&right);
+    printf("  pg_intl_next_leaf: %p\n", (void *)right->pg_intl_next_leaf);
+    printf("  pg_intl_prev_leaf: %p\n", (void *)right->pg_intl_prev_leaf);
+//    if (F_ISSET(ref, WT_REF_FLAG_LEAF)) {  // Only for leaf pages
+//        split_ref[1]->pg_intl_prev_leaf = ref;                // Assign ref (WT_REF*) directly
+//        split_ref[1]->pg_intl_next_leaf = ref->pg_intl_next_leaf;
+//        ref->pg_intl_next_leaf = split_ref[1];
+//        if (split_ref[1]->pg_intl_next_leaf != NULL)
+//            split_ref[1]->pg_intl_next_leaf->pg_intl_prev_leaf = split_ref[1];
+//    }
+//    // Update linked list pointers after creating the new page:
+//    if (F_ISSET(ref, WT_REF_FLAG_LEAF)) {  // Only for leaf pages
+//        right->pg_intl_prev_leaf = ref;                 // Access directly from right
+//        right->pg_intl_next_leaf = ref->pg_intl_next_leaf; // Access directly from ref
+//        ref->pg_intl_next_leaf = right;               // Access directly from ref and right
+//        if (right->pg_intl_next_leaf != NULL)
+//            right->pg_intl_next_leaf->pg_intl_prev_leaf = right; // Access directly from right
+//    }
+
+    //modify ends
     /*
      * The new page is dirty by definition, plus column-store splits update the page-modify
      * structure, so create it now.
@@ -2110,6 +2139,50 @@ __split_multi(WT_SESSION_IMPL *session, WT_REF *ref, bool closing)
      * Split into the parent; if we're closing the file, we hold it exclusively.
      */
     WT_ERR(__split_parent(session, ref, ref_new, new_entries, parent_incr, closing, true));
+    
+    
+    //modify start
+    // After creating new pages (ref_new):
+//    if (F_ISSET(ref, WT_REF_FLAG_LEAF)) {
+//        // Update linked list pointers for the first new page:
+//        ref_new[0]->pg_intl_prev_leaf = ref->pg_intl_prev_leaf;
+//        if (ref->pg_intl_prev_leaf != NULL)
+//            ref->pg_intl_prev_leaf->pg_intl_next_leaf = ref_new[0];  // Assign ref_new[0] (WT_REF*)
+//        ref_new[0]->pg_intl_next_leaf = ref_new[1];
+//
+//        // Update linked list pointers for subsequent new pages:
+//        for (i = 1; i < new_entries - 1; ++i) {
+//            ref_new[i]->pg_intl_prev_leaf = ref_new[i - 1]; // Assign ref_new[i-1] (WT_REF*)
+//            ref_new[i]->pg_intl_next_leaf = ref_new[i + 1];
+//        }
+//
+//        // Update linked list pointers for the last new page:
+//        ref_new[new_entries - 1]->pg_intl_prev_leaf = ref_new[new_entries - 2]; // Assign ref_new[new_entries - 2] (WT_REF*)
+//        ref_new[new_entries - 1]->pg_intl_next_leaf = ref->pg_intl_next_leaf;
+//        if (ref->pg_intl_next_leaf != NULL)
+//            ref->pg_intl_next_leaf->pg_intl_prev_leaf = ref_new[new_entries - 1]; // Assign ref_new[new_entries - 1] (WT_REF*)
+//    }
+//    if (F_ISSET(ref, WT_REF_FLAG_LEAF)) {
+//        // Update linked list pointers for the first new page:
+//        ref_new[0]->page->pg_intl_prev_leaf = ref->page->pg_intl_prev_leaf;
+//        if (ref->page->pg_intl_prev_leaf != NULL)
+//            ref->page->pg_intl_prev_leaf->pg_intl_next_leaf = ref_new[0];
+//        ref_new[0]->page->pg_intl_next_leaf = ref_new[1];
+//
+//        // Update linked list pointers for subsequent new pages:
+//        for (i = 1; i < new_entries - 1; ++i) {
+//            ref_new[i]->page->pg_intl_prev_leaf = ref_new[i - 1];
+//            ref_new[i]->page->pg_intl_next_leaf = ref_new[i + 1];
+//        }
+//
+//        // Update linked list pointers for the last new page:
+//        ref_new[new_entries - 1]->page->pg_intl_prev_leaf = ref_new[new_entries - 2];
+//        ref_new[new_entries - 1]->page->pg_intl_next_leaf = ref->page->pg_intl_next_leaf;
+//        if (ref->page->pg_intl_next_leaf != NULL)
+//            ref->page->pg_intl_next_leaf->pg_intl_prev_leaf = ref_new[new_entries - 1];
+//    }
+
+    //modify ends
 
     /*
      * The split succeeded, we can no longer fail.

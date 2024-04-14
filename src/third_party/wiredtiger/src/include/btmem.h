@@ -567,8 +567,10 @@ struct __wt_page {
         struct {
             WT_REF *parent_ref; /* Parent reference */
             uint64_t split_gen; /* Generation of last split */
-            WT_REF *prev_leaf;
-            WT_REF *next_leaf;
+//            WT_REF *prev;
+//            WT_REF *next;
+            WT_PAGE *prev_leaf;   // Pointer to the previous leaf page
+            WT_PAGE *next_leaf;   // Pointer to the next leaf page
             WT_PAGE_INDEX *volatile __index; /* Collated children */
         } intl;
 #undef pg_intl_parent_ref

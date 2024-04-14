@@ -107,8 +107,8 @@ err:
     case WT_PAGE_ROW_LEAF:
         page->pg_row = alloc_entries == 0 ? NULL : (WT_ROW *)((uint8_t *)page + sizeof(WT_PAGE));
         page->entries = alloc_entries;
-        page->pg_intl_prev_leaf = NULL;  // Initialize prev_leaf pointer
-        page->pg_intl_next_leaf = NULL;  // Initialize next_leaf pointer
+//        page->pg_intl_prev_leaf = NULL;  // Initialize prev_leaf pointer
+//        page->pg_intl_next_leaf = NULL;  // Initialize next_leaf pointer
         break;
     default:
         return (__wt_illegal_value(session, type));
