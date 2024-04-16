@@ -1758,14 +1758,14 @@ __split_insert(WT_SESSION_IMPL *session, WT_REF *ref)
     uint8_t type;
     int i;
     void *key;
-
+    
     WT_STAT_CONN_DATA_INCR(session, cache_inmem_split);
-
+    
     page = ref->page;
     right = NULL;
     page_decr = parent_incr = right_incr = 0;
     type = page->type;
-
+    
     /*
      * Assert splitting makes sense; specifically assert the page is dirty, we depend on that,
      * otherwise the page might be evicted based on its last reconciliation which no longer matches
@@ -1774,17 +1774,17 @@ __split_insert(WT_SESSION_IMPL *session, WT_REF *ref)
     WT_ASSERT(session, __wt_leaf_page_can_split(session, page));
     WT_ASSERT(session, __wt_page_is_modified(page));
     WT_ASSERT(session, ref->ft_info.del == NULL);
-
+    
     F_SET_ATOMIC_16(page, WT_PAGE_SPLIT_INSERT); /* Only split in-memory once. */
-
+    
     /* Find the last item on the page. */
     if (type == WT_PAGE_ROW_LEAF)
         ins_head = page->entries == 0 ? WT_ROW_INSERT_SMALLEST(page) :
-                                        WT_ROW_INSERT_SLOT(page, page->entries - 1);
+        WT_ROW_INSERT_SLOT(page, page->entries - 1);
     else
         ins_head = WT_COL_APPEND(page);
     moved_ins = WT_SKIP_LAST(ins_head);
-
+    
     /*
      * The first page in the split is almost identical to the current page, but we have to create a
      * replacement WT_REF, the original WT_REF will be set to split status and eventually freed.
@@ -1804,19 +1804,22 @@ __split_insert(WT_SESSION_IMPL *session, WT_REF *ref)
         parent_incr += sizeof(WT_IKEY) + key_size;
     } else
         child->ref_recno = ref->ref_recno;
-
+    
     /*
      * The address has moved to the replacement WT_REF. Make sure it isn't freed when the original
      * ref is discarded.
      */
     ref->addr = NULL;
-
+    
     /* The second page in the split is a new WT_REF/page pair. */
     WT_ERR(__wt_page_alloc(session, type, 0, false, &right));
     
     //modified
-    right->pg_intl_prev_leaf = page;  // Assign address of page
-    page->pg_intl_next_leaf = right; // Assign address of right
+    if (type == WT_PAGE_ROW_LEAF){
+        right->pg_intl_prev_leaf = page;  // Assign address of page
+        page->pg_intl_next_leaf = right; // Assign address of right
+    }
+  
     
     printf("Page at address %p\n", (void *)&page);
     printf("  pg_intl_next_leaf: %p\n", (void *)page->pg_intl_next_leaf);
@@ -2142,46 +2145,32 @@ __split_multi(WT_SESSION_IMPL *session, WT_REF *ref, bool closing)
     
     
     //modify start
-    // After creating new pages (ref_new):
-//    if (F_ISSET(ref, WT_REF_FLAG_LEAF)) {
-//        // Update linked list pointers for the first new page:
-//        ref_new[0]->pg_intl_prev_leaf = ref->pg_intl_prev_leaf;
-//        if (ref->pg_intl_prev_leaf != NULL)
-//            ref->pg_intl_prev_leaf->pg_intl_next_leaf = ref_new[0];  // Assign ref_new[0] (WT_REF*)
-//        ref_new[0]->pg_intl_next_leaf = ref_new[1];
-//
-//        // Update linked list pointers for subsequent new pages:
-//        for (i = 1; i < new_entries - 1; ++i) {
-//            ref_new[i]->pg_intl_prev_leaf = ref_new[i - 1]; // Assign ref_new[i-1] (WT_REF*)
-//            ref_new[i]->pg_intl_next_leaf = ref_new[i + 1];
-//        }
-//
-//        // Update linked list pointers for the last new page:
-//        ref_new[new_entries - 1]->pg_intl_prev_leaf = ref_new[new_entries - 2]; // Assign ref_new[new_entries - 2] (WT_REF*)
-//        ref_new[new_entries - 1]->pg_intl_next_leaf = ref->pg_intl_next_leaf;
-//        if (ref->pg_intl_next_leaf != NULL)
-//            ref->pg_intl_next_leaf->pg_intl_prev_leaf = ref_new[new_entries - 1]; // Assign ref_new[new_entries - 1] (WT_REF*)
-//    }
-//    if (F_ISSET(ref, WT_REF_FLAG_LEAF)) {
-//        // Update linked list pointers for the first new page:
-//        ref_new[0]->page->pg_intl_prev_leaf = ref->page->pg_intl_prev_leaf;
-//        if (ref->page->pg_intl_prev_leaf != NULL)
-//            ref->page->pg_intl_prev_leaf->pg_intl_next_leaf = ref_new[0];
-//        ref_new[0]->page->pg_intl_next_leaf = ref_new[1];
-//
-//        // Update linked list pointers for subsequent new pages:
-//        for (i = 1; i < new_entries - 1; ++i) {
-//            ref_new[i]->page->pg_intl_prev_leaf = ref_new[i - 1];
-//            ref_new[i]->page->pg_intl_next_leaf = ref_new[i + 1];
-//        }
-//
-//        // Update linked list pointers for the last new page:
-//        ref_new[new_entries - 1]->page->pg_intl_prev_leaf = ref_new[new_entries - 2];
-//        ref_new[new_entries - 1]->page->pg_intl_next_leaf = ref->page->pg_intl_next_leaf;
-//        if (ref->page->pg_intl_next_leaf != NULL)
-//            ref->page->pg_intl_next_leaf->pg_intl_prev_leaf = ref_new[new_entries - 1];
-//    }
+    if (F_ISSET(ref, WT_REF_FLAG_LEAF)) { // Only for leaf pages
 
+        // Update linked list pointers for the first new page:
+        if (ref_new[0] != NULL) {
+            ref_new[0]->page->pg_intl_prev_leaf = ref->page->pg_intl_prev_leaf;
+            if (ref->page->pg_intl_prev_leaf != NULL)
+                ref->page->pg_intl_prev_leaf->pg_intl_next_leaf = ref_new[0]->page;
+            ref_new[0]->page->pg_intl_next_leaf = ref_new[1] ? ref_new[1]->page : NULL;
+        }
+
+        // Update linked list pointers for subsequent new pages:
+        for (i = 1; i < new_entries - 1; ++i) {
+            if (ref_new[i] != NULL) {
+                ref_new[i]->page->pg_intl_prev_leaf = ref_new[i - 1] ? ref_new[i - 1]->page : NULL;
+                ref_new[i]->page->pg_intl_next_leaf = ref_new[i + 1] ? ref_new[i + 1]->page : NULL;
+            }
+        }
+
+        // Update linked list pointers for the last new page:
+        if (ref_new[new_entries - 1] != NULL) {
+            ref_new[new_entries - 1]->page->pg_intl_prev_leaf = ref_new[new_entries - 2] ? ref_new[new_entries - 2]->page : NULL;
+            ref_new[new_entries - 1]->page->pg_intl_next_leaf = ref->page->pg_intl_next_leaf;
+            if (ref->page->pg_intl_next_leaf != NULL)
+                ref->page->pg_intl_next_leaf->pg_intl_prev_leaf = ref_new[new_entries - 1]->page;
+        }
+    }
     //modify ends
 
     /*
