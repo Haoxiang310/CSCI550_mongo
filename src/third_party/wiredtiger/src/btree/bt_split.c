@@ -749,6 +749,41 @@ __split_parent(WT_SESSION_IMPL *session, WT_REF *ref, WT_REF **ref_new, uint32_t
 
     /* Check we filled in the expected number of entries. */
     WT_ASSERT(session, alloc_refp - alloc_index->index == (ptrdiff_t)result_entries);
+    
+    //start modify
+    
+//    // Identify leaf pages among the new pages:
+//    WT_PAGE *first_new_leaf = NULL;
+//    WT_PAGE *last_new_leaf = NULL;
+//    for (i = 0; i < new_entries; ++i) {
+//        if (ref_new[i]->page->type == WT_PAGE_ROW_LEAF) {
+//            if (first_new_leaf == NULL) {
+//                first_new_leaf = ref_new[i]->page;
+//            }
+//            last_new_leaf = ref_new[i]->page;
+//            // ... (No need to update prev/next pointers here yet) ...
+//        }
+//    }
+//
+//    // Update original page's next_leaf pointer:
+//    if (ref->page->type == WT_PAGE_ROW_LEAF) {
+//        ref->page->pg_intl_next_leaf = first_new_leaf;
+//        if (first_new_leaf != NULL) {
+//            first_new_leaf->pg_intl_prev_leaf = ref->page;
+//        }
+//        // ... update prev_leaf pointer of the next page if it existed ...
+//    }
+//
+//    // ... (Update prev/next pointers of intermediate new leaf pages if necessary) ...
+//
+//    // Update last new leaf page's next_leaf pointer:
+//    if (last_new_leaf != NULL) {
+//        last_new_leaf->pg_intl_next_leaf = ref->page->pg_intl_next_leaf;
+//        // ... update prev_leaf pointer of the next page if it existed ...
+//    }
+//    
+//    
+//    //end modify
 
     /* Start making real changes to the tree, errors are fatal. */
     WT_NOT_READ(complete, WT_ERR_PANIC);
@@ -872,9 +907,16 @@ err:
         break;
     }
     __wt_scr_free(session, &scr);
+    
+    
+    
+    
     return (ret);
 }
 
+//add print structure func
+
+//end
 /*
  * __split_internal --
  *     Split an internal page into its parent.
@@ -1746,14 +1788,321 @@ __wt_multi_to_ref(WT_SESSION_IMPL *session, WT_PAGE *page, WT_MULTI *multi, WT_R
  * __split_insert --
  *     Split a page's last insert list entries into a separate page.
  */
+//static int
+//__split_insert(WT_SESSION_IMPL *session, WT_REF *ref)
+//{
+//    WT_DECL_RET;
+//    WT_INSERT *ins, **insp, *moved_ins, *prev_ins;
+//    WT_INSERT_HEAD *ins_head, *tmp_ins_head;
+//    WT_PAGE *page, *right;
+//    WT_REF *child, *split_ref[2] = {NULL, NULL};
+//    size_t key_size, page_decr, parent_incr, right_incr;
+//    uint8_t type;
+//    int i;
+//    void *key;
+//    
+//    WT_STAT_CONN_DATA_INCR(session, cache_inmem_split);
+//    
+//    page = ref->page;
+//    right = NULL;
+//    page_decr = parent_incr = right_incr = 0;
+//    type = page->type;
+//    
+//    /*
+//     * Assert splitting makes sense; specifically assert the page is dirty, we depend on that,
+//     * otherwise the page might be evicted based on its last reconciliation which no longer matches
+//     * reality after the split.
+//     */
+//    WT_ASSERT(session, __wt_leaf_page_can_split(session, page));
+//    WT_ASSERT(session, __wt_page_is_modified(page));
+//    WT_ASSERT(session, ref->ft_info.del == NULL);
+//    
+//    F_SET_ATOMIC_16(page, WT_PAGE_SPLIT_INSERT); /* Only split in-memory once. */
+//    
+//    /* Find the last item on the page. */
+//    if (type == WT_PAGE_ROW_LEAF)
+//        ins_head = page->entries == 0 ? WT_ROW_INSERT_SMALLEST(page) :
+//        WT_ROW_INSERT_SLOT(page, page->entries - 1);
+//    else
+//        ins_head = WT_COL_APPEND(page);
+//    moved_ins = WT_SKIP_LAST(ins_head);
+//    
+//    /*
+//     * The first page in the split is almost identical to the current page, but we have to create a
+//     * replacement WT_REF, the original WT_REF will be set to split status and eventually freed.
+//     */
+//    WT_ERR(__wt_calloc_one(session, &split_ref[0]));
+//    parent_incr += sizeof(WT_REF);
+//    child = split_ref[0];
+//    child->page = ref->page;
+//    child->home = ref->home;
+//    child->pindex_hint = ref->pindex_hint;
+//    F_SET(child, WT_REF_FLAG_LEAF);
+//    child->state = WT_REF_MEM; /* Visible as soon as the split completes. */
+//    child->addr = ref->addr;
+//    if (type == WT_PAGE_ROW_LEAF) {
+//        __wt_ref_key(ref->home, ref, &key, &key_size);
+//        WT_ERR(__wt_row_ikey(session, 0, key, key_size, child));
+//        parent_incr += sizeof(WT_IKEY) + key_size;
+//    } else
+//        child->ref_recno = ref->ref_recno;
+//    
+//    /*
+//     * The address has moved to the replacement WT_REF. Make sure it isn't freed when the original
+//     * ref is discarded.
+//     */
+//    ref->addr = NULL;
+//    
+//    /* The second page in the split is a new WT_REF/page pair. */
+//    WT_ERR(__wt_page_alloc(session, type, 0, false, &right));
+//    
+//    //modified
+//    if (type == WT_PAGE_ROW_LEAF) {
+//        right->pg_intl_prev_leaf = page;   // Assign address of page
+//        page->pg_intl_next_leaf = right;  // Assign address of right
+//
+//        // Print pointers for the current page (page):
+//        printf("Current Page (page):\n");
+//        printf("  Address: %p\n", (void *)page);
+//        printf("  pg_next_leaf: %p\n", (void *)page->pg_intl_next_leaf);
+//        printf("  pg_prev_leaf: %p\n", (void *)page->pg_intl_prev_leaf);
+//
+//        // Print pointers for the new page (right):
+//        printf("New Page (right):\n");
+//        printf("  Address: %p\n", (void *)right);
+//        printf("  pg_next_leaf: %p\n", (void *)right->pg_intl_next_leaf);
+//        printf("  pg_prev_leaf: %p\n", (void *)right->pg_intl_prev_leaf);
+//    }
+//
+//    //modify ends
+//    /*
+//     * The new page is dirty by definition, plus column-store splits update the page-modify
+//     * structure, so create it now.
+//     */
+//    WT_ERR(__wt_page_modify_init(session, right));
+//    __wt_page_modify_set(session, right);
+//
+//    if (type == WT_PAGE_ROW_LEAF) {
+//        WT_ERR(__wt_calloc_one(session, &right->modify->mod_row_insert));
+//        WT_ERR(__wt_calloc_one(session, &right->modify->mod_row_insert[0]));
+//    } else {
+//        WT_ERR(__wt_calloc_one(session, &right->modify->mod_col_append));
+//        WT_ERR(__wt_calloc_one(session, &right->modify->mod_col_append[0]));
+//    }
+//    right_incr += sizeof(WT_INSERT_HEAD);
+//    right_incr += sizeof(WT_INSERT_HEAD *);
+//
+//    WT_ERR(__wt_calloc_one(session, &split_ref[1]));
+//    parent_incr += sizeof(WT_REF);
+//    child = split_ref[1];
+//    child->page = right;
+//    F_SET(child, WT_REF_FLAG_LEAF);
+//    child->state = WT_REF_MEM; /* Visible as soon as the split completes. */
+//    if (type == WT_PAGE_ROW_LEAF) {
+//        WT_ERR(__wt_row_ikey(
+//          session, 0, WT_INSERT_KEY(moved_ins), WT_INSERT_KEY_SIZE(moved_ins), child));
+//        parent_incr += sizeof(WT_IKEY) + WT_INSERT_KEY_SIZE(moved_ins);
+//    } else
+//        child->ref_recno = WT_INSERT_RECNO(moved_ins);
+//
+//    /*
+//     * Allocation operations completed, we're going to split.
+//     *
+//     * Record the split column-store page record, used in reconciliation.
+//     */
+//    if (type != WT_PAGE_ROW_LEAF) {
+//        WT_ASSERT(session, page->modify->mod_col_split_recno == WT_RECNO_OOB);
+//        page->modify->mod_col_split_recno = child->ref_recno;
+//    }
+//
+//    /*
+//     * Calculate how much memory we're moving: figure out how deep the skip list stack is for the
+//     * element we are moving, and the memory used by the item's list of updates.
+//     */
+//    for (i = 0; i < WT_SKIP_MAXDEPTH && ins_head->tail[i] == moved_ins; ++i)
+//        ;
+//    WT_MEM_TRANSFER(page_decr, right_incr, sizeof(WT_INSERT) + (size_t)i * sizeof(WT_INSERT *));
+//    if (type == WT_PAGE_ROW_LEAF)
+//        WT_MEM_TRANSFER(page_decr, right_incr, WT_INSERT_KEY_SIZE(moved_ins));
+//    WT_MEM_TRANSFER(page_decr, right_incr, __wt_update_list_memsize(moved_ins->upd));
+//
+//    /*
+//     * Move the last insert list item from the original page to the new page.
+//     *
+//     * First, update the item to the new child page. (Just append the entry for simplicity, the
+//     * previous skip list pointers originally allocated can be ignored.)
+//     */
+//    tmp_ins_head = type == WT_PAGE_ROW_LEAF ? right->modify->mod_row_insert[0] :
+//                                              right->modify->mod_col_append[0];
+//    tmp_ins_head->head[0] = tmp_ins_head->tail[0] = moved_ins;
+//
+//    /*
+//     * Remove the entry from the orig page (i.e truncate the skip list).
+//     * Following is an example skip list that might help.
+//     *
+//     *               __
+//     *              |c3|
+//     *               |
+//     *   __		 __    __
+//     *  |a2|--------|c2|--|d2|
+//     *   |		 |	|
+//     *   __		 __    __	   __
+//     *  |a1|--------|c1|--|d1|--------|f1|
+//     *   |		 |	|	   |
+//     *   __    __    __    __    __    __
+//     *  |a0|--|b0|--|c0|--|d0|--|e0|--|f0|
+//     *
+//     *   From the above picture.
+//     *   The head array will be: a0, a1, a2, c3, NULL
+//     *   The tail array will be: f0, f1, d2, c3, NULL
+//     *   We are looking for: e1, d2, NULL
+//     *   If there were no f1, we'd be looking for: e0, NULL
+//     *   If there were an f2, we'd be looking for: e0, d1, d2, NULL
+//     *
+//     *   The algorithm does:
+//     *   1) Start at the top of the head list.
+//     *   2) Step down until we find a level that contains more than one
+//     *      element.
+//     *   3) Step across until we reach the tail of the level.
+//     *   4) If the tail is the item being moved, remove it.
+//     *   5) Drop down a level, and go to step 3 until at level 0.
+//     */
+//    prev_ins = NULL; /* -Wconditional-uninitialized */
+//    for (i = WT_SKIP_MAXDEPTH - 1, insp = &ins_head->head[i]; i >= 0; i--, insp--) {
+//        /* Level empty, or a single element. */
+//        if (ins_head->head[i] == NULL || ins_head->head[i] == ins_head->tail[i]) {
+//            /* Remove if it is the element being moved. */
+//            if (ins_head->head[i] == moved_ins)
+//                ins_head->head[i] = ins_head->tail[i] = NULL;
+//            continue;
+//        }
+//
+//        for (ins = *insp; ins != ins_head->tail[i]; ins = ins->next[i])
+//            prev_ins = ins;
+//
+//        /*
+//         * Update the stack head so that we step down as far to the right as possible. We know that
+//         * prev_ins is valid since levels must contain at least two items to be here.
+//         */
+//        insp = &prev_ins->next[i];
+//        if (ins == moved_ins) {
+//            /* Remove the item being moved. */
+//            WT_ASSERT(session, ins_head->head[i] != moved_ins);
+//            WT_ASSERT(session, prev_ins->next[i] == moved_ins);
+//            *insp = NULL;
+//            ins_head->tail[i] = prev_ins;
+//        }
+//    }
+//
+//#ifdef HAVE_DIAGNOSTIC
+//    /*
+//     * Verify the moved insert item appears nowhere on the skip list.
+//     */
+//    for (i = WT_SKIP_MAXDEPTH - 1, insp = &ins_head->head[i]; i >= 0; i--, insp--)
+//        for (ins = *insp; ins != NULL; ins = ins->next[i])
+//            WT_ASSERT(session, ins != moved_ins);
+//#endif
+//
+//    /*
+//     * We perform insert splits concurrently with checkpoints, where the requirement is a checkpoint
+//     * must include either the original page or both new pages. The page we're splitting is dirty,
+//     * but that's insufficient: set the first dirty transaction to an impossibly old value so this
+//     * page is not skipped by a checkpoint.
+//     */
+//    page->modify->first_dirty_txn = WT_TXN_FIRST;
+//
+//    /*
+//     * We modified the page above, which will have set the first dirty transaction to the last
+//     * transaction current running. However, the updates we installed may be older than that. Set
+//     * the first dirty transaction to an impossibly old value so this page is never skipped in a
+//     * checkpoint.
+//     */
+//    right->modify->first_dirty_txn = WT_TXN_FIRST;
+//
+//    /*
+//     * Update the page accounting.
+//     */
+//    __wt_cache_page_inmem_decr(session, page, page_decr);
+//    __wt_cache_page_inmem_incr(session, right, right_incr);
+//
+//    /*
+//     * The act of splitting into the parent releases the pages for eviction; ensure the page
+//     * contents are consistent.
+//     */
+//    WT_WRITE_BARRIER();
+//
+//    /*
+//     * Split into the parent.
+//     */
+//    if ((ret = __split_parent(session, ref, split_ref, 2, parent_incr, false, true)) == 0)
+//        return (0);
+//
+//    /*
+//     * Failure.
+//     *
+//     * Reset the split column-store page record.
+//     */
+//    if (type != WT_PAGE_ROW_LEAF)
+//        page->modify->mod_col_split_recno = WT_RECNO_OOB;
+//
+//    /*
+//     * Clear the allocated page's reference to the moved insert list element so it's not freed when
+//     * we discard the page.
+//     *
+//     * Move the element back to the original page list. For simplicity, the previous skip list
+//     * pointers originally allocated can be ignored, just append the entry to the end of the level 0
+//     * list. As before, we depend on the list having multiple elements and ignore the edge cases
+//     * small lists have.
+//     */
+//    if (type == WT_PAGE_ROW_LEAF)
+//        right->modify->mod_row_insert[0]->head[0] = right->modify->mod_row_insert[0]->tail[0] =
+//          NULL;
+//    else
+//        right->modify->mod_col_append[0]->head[0] = right->modify->mod_col_append[0]->tail[0] =
+//          NULL;
+//
+//    ins_head->tail[0]->next[0] = moved_ins;
+//    ins_head->tail[0] = moved_ins;
+//
+//    /* Fix up accounting for the page size. */
+//    __wt_cache_page_inmem_incr(session, page, page_decr);
+//
+//err:
+//    if (split_ref[0] != NULL) {
+//        /*
+//         * The address was moved to the replacement WT_REF, restore it.
+//         */
+//        ref->addr = split_ref[0]->addr;
+//
+//        if (type == WT_PAGE_ROW_LEAF)
+//            __wt_free(session, split_ref[0]->ref_ikey);
+//        __wt_free(session, split_ref[0]);
+//    }
+//    if (split_ref[1] != NULL) {
+//        if (type == WT_PAGE_ROW_LEAF)
+//            __wt_free(session, split_ref[1]->ref_ikey);
+//        __wt_free(session, split_ref[1]);
+//    }
+//    if (right != NULL) {
+//        /*
+//         * We marked the new page dirty; we're going to discard it, but first mark it clean and fix
+//         * up the cache statistics.
+//         */
+//        __wt_page_modify_clear(session, right);
+//        __wt_page_out(session, &right);
+//    }
+//    return (ret);
+//}
+
+//updated version
 static int
 __split_insert(WT_SESSION_IMPL *session, WT_REF *ref)
 {
     WT_DECL_RET;
     WT_INSERT *ins, **insp, *moved_ins, *prev_ins;
     WT_INSERT_HEAD *ins_head, *tmp_ins_head;
-    WT_PAGE *page, *right;
-    WT_REF *child, *split_ref[2] = {NULL, NULL};
+    WT_REF *right_ref, *child, *split_ref[2] = {NULL, NULL};
+    WT_PAGE *page;
     size_t key_size, page_decr, parent_incr, right_incr;
     uint8_t type;
     int i;
@@ -1762,9 +2111,9 @@ __split_insert(WT_SESSION_IMPL *session, WT_REF *ref)
     WT_STAT_CONN_DATA_INCR(session, cache_inmem_split);
     
     page = ref->page;
-    right = NULL;
+    right_ref = NULL;
     page_decr = parent_incr = right_incr = 0;
-    type = page->type;
+    type = ref->page->type;
     
     /*
      * Assert splitting makes sense; specifically assert the page is dirty, we depend on that,
@@ -1812,52 +2161,60 @@ __split_insert(WT_SESSION_IMPL *session, WT_REF *ref)
     ref->addr = NULL;
     
     /* The second page in the split is a new WT_REF/page pair. */
-    WT_ERR(__wt_page_alloc(session, type, 0, false, &right));
+    /* Allocate memory for the WT_REF structure using __wt_calloc_one */
+    WT_ERR(__wt_calloc_one(session, &right_ref));
+    /* Allocate the page data using __wt_page_alloc and assign it to the page member of the right_ref structure */
+    WT_ERR(__wt_page_alloc(session, type, 0, false, &right_ref->page));
     
     //modified
-    if (type == WT_PAGE_ROW_LEAF){
-        right->pg_intl_prev_leaf = page;  // Assign address of page
-        page->pg_intl_next_leaf = right; // Assign address of right
-    }
-  
-    
-    printf("Page at address %p\n", (void *)&page);
-    printf("  pg_intl_next_leaf: %p\n", (void *)page->pg_intl_next_leaf);
-    printf("  pg_intl_prev_leaf: %p\n", (void *)page->pg_intl_prev_leaf);
+//    if (type == WT_PAGE_ROW_LEAF) {
+//        right_ref->page->pg_intl_prev_leaf = ref;   // Assign address of page
+//        ref->page->pg_intl_next_leaf = right;  // Assign address of right
+//
+//        // Print pointers for the current page (page):
+//        printf("Current Page (page):\n");
+//        printf("  Address: %p\n", (void *)page);
+//        printf("  pg_next_leaf: %p\n", (void *)page->pg_intl_next_leaf);
+//        printf("  pg_prev_leaf: %p\n", (void *)page->pg_intl_prev_leaf);
+//
+//        // Print pointers for the new page (right):
+//        printf("New Page (right):\n");
+//        printf("  Address: %p\n", (void *)right);
+//        printf("  pg_next_leaf: %p\n", (void *)right->pg_intl_next_leaf);
+//        printf("  pg_prev_leaf: %p\n", (void *)right->pg_intl_prev_leaf);
+//    }
+    if (type == WT_PAGE_ROW_LEAF) {
+        right_ref->page->pg_intl_prev_leaf = ref;   // Assign address of the current WT_REF
+        ref->page->pg_intl_next_leaf = right_ref;   // Assign address of the new WT_REF
 
-    printf("Right at address %p\n", (void *)&right);
-    printf("  pg_intl_next_leaf: %p\n", (void *)right->pg_intl_next_leaf);
-    printf("  pg_intl_prev_leaf: %p\n", (void *)right->pg_intl_prev_leaf);
-//    if (F_ISSET(ref, WT_REF_FLAG_LEAF)) {  // Only for leaf pages
-//        split_ref[1]->pg_intl_prev_leaf = ref;                // Assign ref (WT_REF*) directly
-//        split_ref[1]->pg_intl_next_leaf = ref->pg_intl_next_leaf;
-//        ref->pg_intl_next_leaf = split_ref[1];
-//        if (split_ref[1]->pg_intl_next_leaf != NULL)
-//            split_ref[1]->pg_intl_next_leaf->pg_intl_prev_leaf = split_ref[1];
-//    }
-//    // Update linked list pointers after creating the new page:
-//    if (F_ISSET(ref, WT_REF_FLAG_LEAF)) {  // Only for leaf pages
-//        right->pg_intl_prev_leaf = ref;                 // Access directly from right
-//        right->pg_intl_next_leaf = ref->pg_intl_next_leaf; // Access directly from ref
-//        ref->pg_intl_next_leaf = right;               // Access directly from ref and right
-//        if (right->pg_intl_next_leaf != NULL)
-//            right->pg_intl_next_leaf->pg_intl_prev_leaf = right; // Access directly from right
-//    }
+        // Print pointers for the current page (page):
+        printf("Current Page (page):\n");
+        printf("  Address: %p\n", (void *)page);
+        printf("  pg_next_leaf: %p\n", (void *)ref->page->pg_intl_next_leaf);
+        printf("  pg_prev_leaf: %p\n", (void *)ref->page->pg_intl_prev_leaf);
+
+        // Print pointers for the new page (right_ref):
+        printf("New Page (right_ref):\n");
+        printf("  Address: %p\n", (void *)right_ref->page);
+        printf("  pg_next_leaf: %p\n", (void *)right_ref->page->pg_intl_next_leaf);
+        printf("  pg_prev_leaf: %p\n", (void *)right_ref->page->pg_intl_prev_leaf);
+    }
+
 
     //modify ends
     /*
      * The new page is dirty by definition, plus column-store splits update the page-modify
      * structure, so create it now.
      */
-    WT_ERR(__wt_page_modify_init(session, right));
-    __wt_page_modify_set(session, right);
+    WT_ERR(__wt_page_modify_init(session, right_ref->page));
+    __wt_page_modify_set(session, right_ref->page);
 
     if (type == WT_PAGE_ROW_LEAF) {
-        WT_ERR(__wt_calloc_one(session, &right->modify->mod_row_insert));
-        WT_ERR(__wt_calloc_one(session, &right->modify->mod_row_insert[0]));
+        WT_ERR(__wt_calloc_one(session, &right_ref->page->modify->mod_row_insert));
+        WT_ERR(__wt_calloc_one(session, &right_ref->page->modify->mod_row_insert[0]));
     } else {
-        WT_ERR(__wt_calloc_one(session, &right->modify->mod_col_append));
-        WT_ERR(__wt_calloc_one(session, &right->modify->mod_col_append[0]));
+        WT_ERR(__wt_calloc_one(session, &right_ref->page->modify->mod_col_append));
+        WT_ERR(__wt_calloc_one(session, &right_ref->page->modify->mod_col_append[0]));
     }
     right_incr += sizeof(WT_INSERT_HEAD);
     right_incr += sizeof(WT_INSERT_HEAD *);
@@ -1865,7 +2222,7 @@ __split_insert(WT_SESSION_IMPL *session, WT_REF *ref)
     WT_ERR(__wt_calloc_one(session, &split_ref[1]));
     parent_incr += sizeof(WT_REF);
     child = split_ref[1];
-    child->page = right;
+    child->page = right_ref->page;
     F_SET(child, WT_REF_FLAG_LEAF);
     child->state = WT_REF_MEM; /* Visible as soon as the split completes. */
     if (type == WT_PAGE_ROW_LEAF) {
@@ -1902,8 +2259,8 @@ __split_insert(WT_SESSION_IMPL *session, WT_REF *ref)
      * First, update the item to the new child page. (Just append the entry for simplicity, the
      * previous skip list pointers originally allocated can be ignored.)
      */
-    tmp_ins_head = type == WT_PAGE_ROW_LEAF ? right->modify->mod_row_insert[0] :
-                                              right->modify->mod_col_append[0];
+    tmp_ins_head = type == WT_PAGE_ROW_LEAF ? right_ref->page->modify->mod_row_insert[0] :
+    right_ref->page->modify->mod_col_append[0];
     tmp_ins_head->head[0] = tmp_ins_head->tail[0] = moved_ins;
 
     /*
@@ -1913,12 +2270,12 @@ __split_insert(WT_SESSION_IMPL *session, WT_REF *ref)
      *               __
      *              |c3|
      *               |
-     *   __		 __    __
+     *   __         __    __
      *  |a2|--------|c2|--|d2|
-     *   |		 |	|
-     *   __		 __    __	   __
+     *   |         |    |
+     *   __         __    __       __
      *  |a1|--------|c1|--|d1|--------|f1|
-     *   |		 |	|	   |
+     *   |         |    |       |
      *   __    __    __    __    __    __
      *  |a0|--|b0|--|c0|--|d0|--|e0|--|f0|
      *
@@ -1987,13 +2344,13 @@ __split_insert(WT_SESSION_IMPL *session, WT_REF *ref)
      * the first dirty transaction to an impossibly old value so this page is never skipped in a
      * checkpoint.
      */
-    right->modify->first_dirty_txn = WT_TXN_FIRST;
+    right_ref->page->modify->first_dirty_txn = WT_TXN_FIRST;
 
     /*
      * Update the page accounting.
      */
     __wt_cache_page_inmem_decr(session, page, page_decr);
-    __wt_cache_page_inmem_incr(session, right, right_incr);
+    __wt_cache_page_inmem_incr(session, right_ref->page, right_incr);
 
     /*
      * The act of splitting into the parent releases the pages for eviction; ensure the page
@@ -2025,10 +2382,10 @@ __split_insert(WT_SESSION_IMPL *session, WT_REF *ref)
      * small lists have.
      */
     if (type == WT_PAGE_ROW_LEAF)
-        right->modify->mod_row_insert[0]->head[0] = right->modify->mod_row_insert[0]->tail[0] =
+        right_ref->page->modify->mod_row_insert[0]->head[0] = right_ref->page->modify->mod_row_insert[0]->tail[0] =
           NULL;
     else
-        right->modify->mod_col_append[0]->head[0] = right->modify->mod_col_append[0]->tail[0] =
+        right_ref->page->modify->mod_col_append[0]->head[0] = right_ref->page->modify->mod_col_append[0]->tail[0] =
           NULL;
 
     ins_head->tail[0]->next[0] = moved_ins;
@@ -2053,13 +2410,12 @@ err:
             __wt_free(session, split_ref[1]->ref_ikey);
         __wt_free(session, split_ref[1]);
     }
-    if (right != NULL) {
-        /*
-         * We marked the new page dirty; we're going to discard it, but first mark it clean and fix
-         * up the cache statistics.
-         */
-        __wt_page_modify_clear(session, right);
-        __wt_page_out(session, &right);
+    if (right_ref != NULL) {
+        if (right_ref->page != NULL) {
+            /* Make sure to adjust the page-out function to take a WT_PAGE pointer */
+            __wt_page_out(session, &right_ref->page);
+        }
+        __wt_free(session, right_ref);
     }
     return (ret);
 }
@@ -2111,6 +2467,100 @@ __wt_split_insert(WT_SESSION_IMPL *session, WT_REF *ref)
  * __split_multi --
  *     Split a page into multiple pages.
  */
+//static int
+//__split_multi(WT_SESSION_IMPL *session, WT_REF *ref, bool closing)
+//{
+//    WT_DECL_RET;
+//    WT_PAGE *page;
+//    WT_PAGE_MODIFY *mod;
+//    WT_REF **ref_new;
+//    size_t parent_incr;
+//    uint32_t i, new_entries;
+//
+//    WT_STAT_CONN_DATA_INCR(session, cache_eviction_split_leaf);
+//
+//    page = ref->page;
+//    mod = page->modify;
+//    new_entries = mod->mod_multi_entries;
+//
+//    parent_incr = 0;
+//
+//    /*
+//     * Convert the split page's multiblock reconciliation information into an array of page
+//     * reference structures.
+//     */
+//    WT_RET(__wt_calloc_def(session, new_entries, &ref_new));
+//    for (i = 0; i < new_entries; ++i)
+//        WT_ERR(
+//          __wt_multi_to_ref(session, page, &mod->mod_multi[i], &ref_new[i], &parent_incr, closing));
+//
+//    /*
+//     * Split into the parent; if we're closing the file, we hold it exclusively.
+//     */
+//    WT_ERR(__split_parent(session, ref, ref_new, new_entries, parent_incr, closing, true));
+//    
+//    
+////    //modify start
+////    if (F_ISSET(ref, WT_REF_FLAG_LEAF)) { // Only for leaf pages
+////        printf("hi");
+////        // Update linked list pointers for the first new page:
+////        if (ref_new[0] != NULL) {
+////            ref_new[0]->page->pg_intl_prev_leaf = ref->page->pg_intl_prev_leaf;
+////            if (ref->page->pg_intl_prev_leaf != NULL)
+////                ref->page->pg_intl_prev_leaf->pg_intl_next_leaf = ref_new[0]->page;
+////            ref_new[0]->page->pg_intl_next_leaf = ref_new[1] ? ref_new[1]->page : NULL;
+////        }
+////
+////        // Update linked list pointers for subsequent new pages:
+////        for (i = 1; i < new_entries - 1; ++i) {
+////            if (ref_new[i] != NULL) {
+////                ref_new[i]->page->pg_intl_prev_leaf = ref_new[i - 1] ? ref_new[i - 1]->page : NULL;
+////                ref_new[i]->page->pg_intl_next_leaf = ref_new[i + 1] ? ref_new[i + 1]->page : NULL;
+////            }
+////        }
+////
+////        // Update linked list pointers for the last new page:
+////        if (ref_new[new_entries - 1] != NULL) {
+////            ref_new[new_entries - 1]->page->pg_intl_prev_leaf = ref_new[new_entries - 2] ? ref_new[new_entries - 2]->page : NULL;
+////            ref_new[new_entries - 1]->page->pg_intl_next_leaf = ref->page->pg_intl_next_leaf;
+////            if (ref->page->pg_intl_next_leaf != NULL)
+////                ref->page->pg_intl_next_leaf->pg_intl_prev_leaf = ref_new[new_entries - 1]->page;
+////        }
+////    }
+//    //modify ends
+//
+//    /*
+//     * The split succeeded, we can no longer fail.
+//     *
+//     * Finalize the move, discarding moved update lists from the original page.
+//     */
+//    for (i = 0; i < new_entries; ++i)
+//        __split_multi_inmem_final(session, page, &mod->mod_multi[i]);
+//
+//    /*
+//     * Page with changes not written in this reconciliation is not marked as clean, do it now, then
+//     * discard the page.
+//     */
+//    __wt_page_modify_clear(session, page);
+//    __wt_page_out(session, &page);
+//
+//    if (0) {
+//err:
+//        for (i = 0; i < new_entries; ++i)
+//            __split_multi_inmem_fail(session, page, &mod->mod_multi[i], ref_new[i]);
+//        /*
+//         * Mark the page dirty to ensure it is reconciled again as we free the split disk images if
+//         * we fail to instantiate any of them into memory.
+//         */
+//        __wt_page_modify_set(session, page);
+//    }
+//
+//    __wt_free(session, ref_new);
+//    return (ret);
+//}
+
+
+//updated split_multi
 static int
 __split_multi(WT_SESSION_IMPL *session, WT_REF *ref, bool closing)
 {
@@ -2144,34 +2594,39 @@ __split_multi(WT_SESSION_IMPL *session, WT_REF *ref, bool closing)
     WT_ERR(__split_parent(session, ref, ref_new, new_entries, parent_incr, closing, true));
     
     
+
+    //modify start
     //modify start
     if (F_ISSET(ref, WT_REF_FLAG_LEAF)) { // Only for leaf pages
-
+        printf("hi");
         // Update linked list pointers for the first new page:
         if (ref_new[0] != NULL) {
-            ref_new[0]->page->pg_intl_prev_leaf = ref->page->pg_intl_prev_leaf;
+            ref_new[0]->page->pg_intl_prev_leaf = ref->page->pg_intl_prev_leaf; // Accessing WT_REF* via WT_PAGE of ref
             if (ref->page->pg_intl_prev_leaf != NULL)
-                ref->page->pg_intl_prev_leaf->pg_intl_next_leaf = ref_new[0]->page;
-            ref_new[0]->page->pg_intl_next_leaf = ref_new[1] ? ref_new[1]->page : NULL;
+                ref->page->pg_intl_prev_leaf->page->pg_intl_next_leaf = ref_new[0]; // Linking WT_REF* via WT_PAGE of ref
+            ref_new[0]->page->pg_intl_next_leaf = (new_entries > 1) ? ref_new[1] : NULL;
         }
 
         // Update linked list pointers for subsequent new pages:
         for (i = 1; i < new_entries - 1; ++i) {
             if (ref_new[i] != NULL) {
-                ref_new[i]->page->pg_intl_prev_leaf = ref_new[i - 1] ? ref_new[i - 1]->page : NULL;
-                ref_new[i]->page->pg_intl_next_leaf = ref_new[i + 1] ? ref_new[i + 1]->page : NULL;
+                ref_new[i]->page->pg_intl_prev_leaf = ref_new[i - 1];
+                ref_new[i]->page->pg_intl_next_leaf = ref_new[i + 1];
             }
         }
 
         // Update linked list pointers for the last new page:
-        if (ref_new[new_entries - 1] != NULL) {
-            ref_new[new_entries - 1]->page->pg_intl_prev_leaf = ref_new[new_entries - 2] ? ref_new[new_entries - 2]->page : NULL;
+        if (new_entries > 1 && ref_new[new_entries - 1] != NULL) {
+            ref_new[new_entries - 1]->page->pg_intl_prev_leaf = ref_new[new_entries - 2];
             ref_new[new_entries - 1]->page->pg_intl_next_leaf = ref->page->pg_intl_next_leaf;
             if (ref->page->pg_intl_next_leaf != NULL)
-                ref->page->pg_intl_next_leaf->pg_intl_prev_leaf = ref_new[new_entries - 1]->page;
+                ref->page->pg_intl_next_leaf->page->pg_intl_prev_leaf = ref_new[new_entries - 1];
         }
     }
     //modify ends
+
+    //modify ends
+
 
     /*
      * The split succeeded, we can no longer fail.

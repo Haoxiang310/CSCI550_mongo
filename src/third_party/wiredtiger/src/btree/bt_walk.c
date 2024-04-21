@@ -7,7 +7,9 @@
  */
 
 #include "wt_internal.h"
+#include <stdio.h>
 
+void print_btree_structure(WT_SESSION_IMPL *session, WT_PAGE *page, int level);
 /*
  * __ref_index_slot --
  *     Return the page's index and slot for a reference.
@@ -254,7 +256,13 @@ __tree_walk_internal(WT_SESSION_IMPL *session, WT_REF **refp, uint64_t *walkcntp
     pindex = NULL;
     restart_sleep = restart_yield = 0;
     empty_internal = false;
-
+    
+//    printf("Entries number of root: %u", btree->root.page->u.intl.__index->entries);
+    printf("print start ====================\n");
+    
+    print_btree_structure(session, btree->root.page, 0);
+    
+    printf("print end ====================\n");
     /* Ensure we have a snapshot to check visibility or we only check global visibility. */
     WT_ASSERT(session, LF_ISSET(WT_READ_VISIBLE_ALL) || F_ISSET(session->txn, WT_TXN_HAS_SNAPSHOT));
 
@@ -341,6 +349,27 @@ restart:
 
     /* Figure out the current slot in the WT_REF array. */
     __ref_index_slot(session, ref, &pindex, &slot);
+    
+    //modified
+    //printf("%d\n", LF_ISSET(WT_READ_SKIP_INTL));
+    if (LF_ISSET(WT_READ_SKIP_INTL)) {
+        //printf("enter customized function -----");
+        
+            // Attempt direct traversal using next/prev pointers
+        if (ref_orig != NULL && ref_orig->page != NULL) {
+            // ... printing code ...
+//            printf("ref_orig->page->pg_intl_prev_leaf: %p\n", (void *)ref_orig->page->pg_intl_prev_leaf);
+            
+        }
+            if (prev && ref_orig->page->pg_intl_prev_leaf != NULL) {
+                *refp = ref_orig->page->pg_intl_prev_leaf;
+                goto done; // Directly return the previous leaf page
+            } else if (!prev && ref_orig->page->pg_intl_next_leaf != NULL) {
+                *refp = ref_orig->page->pg_intl_next_leaf;
+                goto done; // Directly return the next leaf page
+            }
+        }
+    //end
 
     for (;;) {
         /*
@@ -507,12 +536,67 @@ descend:
     }
 
 done:
+    
+    
 err:
     WT_TRET(__wt_page_release(session, couple, flags));
     WT_TRET(__wt_page_release(session, ref_orig, flags));
     WT_LEAVE_PAGE_INDEX(session);
+    
+    //add print
+    
+    
     return (ret);
 }
+
+//add print func
+
+void print_btree_structure(WT_SESSION_IMPL *session, WT_PAGE *page, int level) {
+    // Handle empty B-tree case:
+    if (page == NULL) {
+        printf("B-Tree is empty.\n");
+        return;
+    }
+
+    // Print indentation based on level:
+    for (int i = 0; i < level; ++i) {
+        printf("  ");  // Adjust indentation as needed
+    }
+
+    // Print page information (address, next, prev) for all nodes
+    printf("Page Address: %p, ", (void *)page);
+
+    // Determine and print node type
+    switch (page->type) {
+        case WT_PAGE_ROW_INT:
+            printf("Type: Internal (Row-Store)\n");
+            break;
+        case WT_PAGE_ROW_LEAF:
+            printf("Type: Leaf (Row-Store)\n");
+            break;
+        // ... (Add cases for other page types as needed) ...
+        default:
+            printf("Type: Unknown\n");
+    }
+
+    // Print next and prev pointers for all nodes (even if NULL for internal nodes)
+    printf("  pg_intl_next_leaf: %p\n", (void *)page->pg_intl_next_leaf);
+    printf("  pg_intl_prev_leaf: %p\n", (void *)page->pg_intl_prev_leaf);
+
+    // Recursively visit child pages for internal nodes:
+    if (page->type != WT_PAGE_ROW_LEAF) {
+        for (uint32_t i = 0; i < page->u.intl.__index->entries; ++i) {
+            WT_PAGE_INDEX *pindex = WT_INTL_INDEX_GET_SAFE(page);
+            WT_REF *temp_ref;
+            WT_INTL_INDEX_GET(session, page, pindex);
+            temp_ref = pindex->index[i];
+            print_btree_structure(session, temp_ref->page, level + 1);
+        }
+    }
+}
+
+
+//end
 
 /*
  * __wt_tree_walk --
@@ -521,6 +605,7 @@ err:
 int
 __wt_tree_walk(WT_SESSION_IMPL *session, WT_REF **refp, uint32_t flags)
 {
+    //printf("Enter Tree Walk%u\n", flags);
     return (__tree_walk_internal(session, refp, NULL, NULL, NULL, flags));
 }
 
