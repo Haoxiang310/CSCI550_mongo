@@ -258,11 +258,11 @@ __tree_walk_internal(WT_SESSION_IMPL *session, WT_REF **refp, uint64_t *walkcntp
     empty_internal = false;
     
 //    printf("Entries number of root: %u", btree->root.page->u.intl.__index->entries);
-    printf("print start ====================\n");
-    
-    print_btree_structure(session, btree->root.page, 0);
-    
-    printf("print end ====================\n");
+//    printf("print start ====================\n");
+//    
+//    print_btree_structure(session, btree->root.page, 0);
+//    
+//    printf("print end ====================\n");
     /* Ensure we have a snapshot to check visibility or we only check global visibility. */
     WT_ASSERT(session, LF_ISSET(WT_READ_VISIBLE_ALL) || F_ISSET(session->txn, WT_TXN_HAS_SNAPSHOT));
 
@@ -353,21 +353,30 @@ restart:
     //modified
     //printf("%d\n", LF_ISSET(WT_READ_SKIP_INTL));
     if (LF_ISSET(WT_READ_SKIP_INTL)) {
-        //printf("enter customized function -----");
+        printf("enter customized function -----");
         
             // Attempt direct traversal using next/prev pointers
-        if (ref_orig != NULL && ref_orig->page != NULL) {
-            // ... printing code ...
-//            printf("ref_orig->page->pg_intl_prev_leaf: %p\n", (void *)ref_orig->page->pg_intl_prev_leaf);
-            
+//        if (ref_orig != NULL && ref_orig->page != NULL && ref_orig->page->pg_intl_next_leaf != NULL) {
+//            // ... printing code ...
+//            printf("ref_orig->page->pg_intl_next_leaf: %p\n", (void *)ref_orig->page->pg_intl_next_leaf->page);
+//            
+//        }
+//            if (prev && ref_orig->page->pg_intl_prev_leaf != NULL) {
+//                printf("enter prev");
+//                *refp = ref_orig->page->pg_intl_prev_leaf;
+//                goto done; // Directly return the previous leaf page
+//            } else 
+        if (!prev && ref_orig->page->pg_intl_next_leaf != NULL) {
+            printf("enter next\n");
+            *refp = ref_orig->page->pg_intl_next_leaf;  // Set refp to the next leaf page
+
+            // 打印当前page的地址和新的refp的page的地址
+            printf("Current page address: %p\n", (void *)ref_orig->page);
+            printf("New refp page address: %p\n", (void *)(*refp)->page);
+
+            goto done; // Directly return the next leaf page
         }
-            if (prev && ref_orig->page->pg_intl_prev_leaf != NULL) {
-                *refp = ref_orig->page->pg_intl_prev_leaf;
-                goto done; // Directly return the previous leaf page
-            } else if (!prev && ref_orig->page->pg_intl_next_leaf != NULL) {
-                *refp = ref_orig->page->pg_intl_next_leaf;
-                goto done; // Directly return the next leaf page
-            }
+
         }
     //end
 
@@ -565,24 +574,40 @@ void print_btree_structure(WT_SESSION_IMPL *session, WT_PAGE *page, int level) {
 
     // Print page information (address, next, prev) for all nodes
     printf("Page Address: %p, ", (void *)page);
-
-    // Determine and print node type
-    switch (page->type) {
-        case WT_PAGE_ROW_INT:
-            printf("Type: Internal (Row-Store)\n");
-            break;
-        case WT_PAGE_ROW_LEAF:
-            printf("Type: Leaf (Row-Store)\n");
-            break;
-        // ... (Add cases for other page types as needed) ...
-        default:
-            printf("Type: Unknown\n");
-    }
+        switch (page->type) {
+            case WT_PAGE_ROW_INT:
+                printf("Type: Internal (Row-Store), Level: %d\n", level);
+                break;
+            case WT_PAGE_ROW_LEAF:
+                printf("Type: Leaf (Row-Store), Level: %d\n", level);
+                break;
+            // ... (Add cases for other page types as needed) ...
+            default:
+                printf("Type: Unknown, Level: %d\n", level);
+        }
 
     // Print next and prev pointers for all nodes (even if NULL for internal nodes)
-    printf("  pg_intl_next_leaf: %p\n", (void *)page->pg_intl_next_leaf);
-    printf("  pg_intl_prev_leaf: %p\n", (void *)page->pg_intl_prev_leaf);
+    if (page->pg_intl_next_leaf != NULL)
+        printf("  pg_intl_next_leaf: %p\n", (void *)(page->pg_intl_next_leaf->page));
+    else
+        printf("  pg_intl_next_leaf: NULL\n");
 
+    if (page->pg_intl_prev_leaf != NULL)
+        printf("  pg_intl_prev_leaf: %p\n", (void *)(page->pg_intl_prev_leaf->page));
+    else
+        printf("  pg_intl_prev_leaf: NULL\n");
+
+    
+    if (page->type != WT_PAGE_ROW_LEAF) {
+            printf("  Child Page Addresses:\n");
+            for (uint32_t i = 0; i < page->u.intl.__index->entries; ++i) {
+                WT_PAGE_INDEX *pindex = WT_INTL_INDEX_GET_SAFE(page);
+                WT_REF *temp_ref;
+                WT_INTL_INDEX_GET(session, page, pindex);
+                temp_ref = pindex->index[i];
+                printf("    %p\n", (void *)temp_ref->page); // Print child page address
+            }
+        }
     // Recursively visit child pages for internal nodes:
     if (page->type != WT_PAGE_ROW_LEAF) {
         for (uint32_t i = 0; i < page->u.intl.__index->entries; ++i) {

@@ -2165,39 +2165,26 @@ __split_insert(WT_SESSION_IMPL *session, WT_REF *ref)
     WT_ERR(__wt_calloc_one(session, &right_ref));
     /* Allocate the page data using __wt_page_alloc and assign it to the page member of the right_ref structure */
     WT_ERR(__wt_page_alloc(session, type, 0, false, &right_ref->page));
-    
-    //modified
-//    if (type == WT_PAGE_ROW_LEAF) {
-//        right_ref->page->pg_intl_prev_leaf = ref;   // Assign address of page
-//        ref->page->pg_intl_next_leaf = right;  // Assign address of right
-//
-//        // Print pointers for the current page (page):
+
+    if (type == WT_PAGE_ROW_LEAF) {
+        printf("enter split insert");
+        if (right_ref != NULL && right_ref->page != NULL && ref != NULL && ref->page != NULL) {
+                right_ref->page->pg_intl_prev_leaf = ref;   // Assign address of the current WT_REF
+                ref->page->pg_intl_next_leaf = right_ref;   // Assign address of the new WT_REF
+            }
+        // Print pointers for the current page (page):
 //        printf("Current Page (page):\n");
 //        printf("  Address: %p\n", (void *)page);
-//        printf("  pg_next_leaf: %p\n", (void *)page->pg_intl_next_leaf);
-//        printf("  pg_prev_leaf: %p\n", (void *)page->pg_intl_prev_leaf);
+//        if(ref->page->pg_intl_next_leaf != NULL)
+//            printf("  pg_next_leaf: %p\n", (void *)ref->page->pg_intl_next_leaf->page);
+//        if(ref->page->pg_intl_prev_leaf != NULL)
+//            printf("  pg_prev_leaf: %p\n", (void *)ref->page->pg_intl_prev_leaf->page);
 //
-//        // Print pointers for the new page (right):
-//        printf("New Page (right):\n");
-//        printf("  Address: %p\n", (void *)right);
-//        printf("  pg_next_leaf: %p\n", (void *)right->pg_intl_next_leaf);
-//        printf("  pg_prev_leaf: %p\n", (void *)right->pg_intl_prev_leaf);
-//    }
-    if (type == WT_PAGE_ROW_LEAF) {
-        right_ref->page->pg_intl_prev_leaf = ref;   // Assign address of the current WT_REF
-        ref->page->pg_intl_next_leaf = right_ref;   // Assign address of the new WT_REF
-
-        // Print pointers for the current page (page):
-        printf("Current Page (page):\n");
-        printf("  Address: %p\n", (void *)page);
-        printf("  pg_next_leaf: %p\n", (void *)ref->page->pg_intl_next_leaf);
-        printf("  pg_prev_leaf: %p\n", (void *)ref->page->pg_intl_prev_leaf);
-
-        // Print pointers for the new page (right_ref):
-        printf("New Page (right_ref):\n");
-        printf("  Address: %p\n", (void *)right_ref->page);
-        printf("  pg_next_leaf: %p\n", (void *)right_ref->page->pg_intl_next_leaf);
-        printf("  pg_prev_leaf: %p\n", (void *)right_ref->page->pg_intl_prev_leaf);
+//        // Print pointers for the new page (right_ref):
+//        printf("New Page (right_ref):\n");
+//        printf("  Address: %p\n", (void *)right_ref->page);
+//        printf("  pg_next_leaf: %p\n", (void *)right_ref->page->pg_intl_next_leaf);
+//        printf("  pg_prev_leaf: %p\n", (void *)right_ref->page->pg_intl_prev_leaf);
     }
 
 
@@ -2597,32 +2584,37 @@ __split_multi(WT_SESSION_IMPL *session, WT_REF *ref, bool closing)
 
     //modify start
     //modify start
-    if (F_ISSET(ref, WT_REF_FLAG_LEAF)) { // Only for leaf pages
-        printf("hi");
+    if (page->type == WT_PAGE_ROW_LEAF) { // Only for leaf pages
+        printf("hi==========");
         // Update linked list pointers for the first new page:
-        if (ref_new[0] != NULL) {
-            ref_new[0]->page->pg_intl_prev_leaf = ref->page->pg_intl_prev_leaf; // Accessing WT_REF* via WT_PAGE of ref
-            if (ref->page->pg_intl_prev_leaf != NULL)
-                ref->page->pg_intl_prev_leaf->page->pg_intl_next_leaf = ref_new[0]; // Linking WT_REF* via WT_PAGE of ref
-            ref_new[0]->page->pg_intl_next_leaf = (new_entries > 1) ? ref_new[1] : NULL;
+        if (ref_new[0] != NULL && ref_new[0]->page != NULL) {
+            if (ref->page != NULL && ref->page->pg_intl_prev_leaf != NULL && ref->page->pg_intl_prev_leaf->page != NULL) {
+                ref_new[0]->page->pg_intl_prev_leaf = ref->page->pg_intl_prev_leaf;
+                ref->page->pg_intl_prev_leaf->page->pg_intl_next_leaf = ref_new[0];
+            }
+            ref_new[0]->page->pg_intl_next_leaf = (new_entries > 1 && ref_new[1] != NULL) ? ref_new[1] : NULL;
         }
 
         // Update linked list pointers for subsequent new pages:
-        for (i = 1; i < new_entries - 1; ++i) {
-            if (ref_new[i] != NULL) {
+        for (uint32_t i = 1; i < new_entries - 1; ++i) {
+            if (ref_new[i] != NULL && ref_new[i]->page != NULL) {
                 ref_new[i]->page->pg_intl_prev_leaf = ref_new[i - 1];
-                ref_new[i]->page->pg_intl_next_leaf = ref_new[i + 1];
+                ref_new[i]->page->pg_intl_next_leaf = (i + 1 < new_entries && ref_new[i + 1] != NULL) ? ref_new[i + 1] : NULL;
             }
         }
 
         // Update linked list pointers for the last new page:
-        if (new_entries > 1 && ref_new[new_entries - 1] != NULL) {
+        if (new_entries > 1 && ref_new[new_entries - 1] != NULL && ref_new[new_entries - 1]->page != NULL) {
             ref_new[new_entries - 1]->page->pg_intl_prev_leaf = ref_new[new_entries - 2];
-            ref_new[new_entries - 1]->page->pg_intl_next_leaf = ref->page->pg_intl_next_leaf;
-            if (ref->page->pg_intl_next_leaf != NULL)
-                ref->page->pg_intl_next_leaf->page->pg_intl_prev_leaf = ref_new[new_entries - 1];
+            if (ref->page != NULL && ref->page->pg_intl_next_leaf != NULL) {
+                ref_new[new_entries - 1]->page->pg_intl_next_leaf = ref->page->pg_intl_next_leaf;
+                if (ref->page->pg_intl_next_leaf->page != NULL) {
+                    ref->page->pg_intl_next_leaf->page->pg_intl_prev_leaf = ref_new[new_entries - 1];
+                }
+            }
         }
     }
+
     //modify ends
 
     //modify ends
