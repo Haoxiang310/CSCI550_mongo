@@ -1,7 +1,7 @@
 /*-
  * Copyright (c) 2014-present MongoDB, Inc.
  * Copyright (c) 2008-2014 WiredTiger, Inc.
- *	All rights reserved.
+ *    All rights reserved.
  *
  * See the file LICENSE for redistribution information.
  */
@@ -115,15 +115,15 @@ __ref_ascend(WT_SESSION_IMPL *session, WT_REF **refp, WT_PAGE_INDEX **pindexp, u
          * with the namespaces a-f, g-h and i-j; the first child page
          * splits. The parent starts out with the following page-index:
          *
-         *	| ... | a | g | i | ... |
+         *    | ... | a | g | i | ... |
          *
          * which changes to this:
          *
-         *	| ... | a | c | e | g | i | ... |
+         *    | ... | a | c | e | g | i | ... |
          *
          * The split page starts out with the following page-index:
          *
-         *	| a | b | c | d | e | f |
+         *    | a | b | c | d | e | f |
          *
          * Imagine a cursor finishing the 'f' part of the namespace that
          * starts its ascent to the parent's 'a' slot. Then the page
@@ -190,11 +190,11 @@ __split_prev_race(WT_SESSION_IMPL *session, WT_REF *ref, WT_PAGE_INDEX **pindexp
      * g-h and i-j; the first child page splits. The parent starts out with
      * the following page-index:
      *
-     *	| ... | a | g | i | ... |
+     *    | ... | a | g | i | ... |
      *
      * The split page starts out with the following page-index:
      *
-     *	| a | b | c | d | e | f |
+     *    | a | b | c | d | e | f |
      *
      * The first step is to move the c-f ranges into a new subtree, so, for
      * example we might have two new internal pages 'c' and 'e', where the
@@ -204,7 +204,7 @@ __split_prev_race(WT_SESSION_IMPL *session, WT_REF *ref, WT_PAGE_INDEX **pindexp
      * the subtree won't be able to ascend out of the subtree. However, once
      * the parent page's page index is updated to this:
      *
-     *	| ... | a | c | e | g | i | ... |
+     *    | ... | a | c | e | g | i | ... |
      *
      * threads in the subtree can ascend into the parent. Imagine a cursor
      * in the c-d part of the namespace that ascends to the parent's 'c'
@@ -216,7 +216,7 @@ __split_prev_race(WT_SESSION_IMPL *session, WT_REF *ref, WT_PAGE_INDEX **pindexp
      * the 'f' slot, which is incorrect. Once the split page's page index is
      * updated to this:
      *
-     *	| a | b |
+     *    | a | b |
      *
      * the previous-cursor movement will select the 'b' slot, which is
      * correct.
@@ -238,6 +238,22 @@ __split_prev_race(WT_SESSION_IMPL *session, WT_REF *ref, WT_PAGE_INDEX **pindexp
  * __tree_walk_internal --
  *     Move to the next/previous page in the tree.
  */
+/*
+ * Print information about the btree, including the key format.
+ */
+void
+__wt_print_btree_info(WT_SESSION_IMPL *session, WT_BTREE *btree) {
+    if (btree != NULL && btree->key_format != NULL) {
+            printf("Temporary Debug: Btree ID: %u, Key format: %s\n", btree->id, btree->key_format);
+        } else {
+            printf("Temporary Debug: Btree or key format is NULL.\n");
+        }
+}
+
+/*
+ * Example usage in a function
+ */
+
 static inline int
 __tree_walk_internal(WT_SESSION_IMPL *session, WT_REF **refp, uint64_t *walkcntp,
   int (*skip_func)(WT_SESSION_IMPL *, WT_REF *, void *, bool, bool *), void *func_cookie,
@@ -259,9 +275,9 @@ __tree_walk_internal(WT_SESSION_IMPL *session, WT_REF **refp, uint64_t *walkcntp
     
 //    printf("Entries number of root: %u", btree->root.page->u.intl.__index->entries);
 //    printf("print start ====================\n");
-//    
+//    __wt_print_btree_info(session, btree);
 //    print_btree_structure(session, btree->root.page, 0);
-//    
+//
 //    printf("print end ====================\n");
     /* Ensure we have a snapshot to check visibility or we only check global visibility. */
     WT_ASSERT(session, LF_ISSET(WT_READ_VISIBLE_ALL) || F_ISSET(session->txn, WT_TXN_HAS_SNAPSHOT));
@@ -359,20 +375,20 @@ restart:
 //        if (ref_orig != NULL && ref_orig->page != NULL && ref_orig->page->pg_intl_next_leaf != NULL) {
 //            // ... printing code ...
 //            printf("ref_orig->page->pg_intl_next_leaf: %p\n", (void *)ref_orig->page->pg_intl_next_leaf->page);
-//            
+//
 //        }
 //            if (prev && ref_orig->page->pg_intl_prev_leaf != NULL) {
 //                printf("enter prev");
 //                *refp = ref_orig->page->pg_intl_prev_leaf;
 //                goto done; // Directly return the previous leaf page
-//            } else 
-        if (!prev && ref_orig->page->pg_intl_next_leaf != NULL) {
-            printf("enter next\n");
+//            } else
+        if (!prev && ref_orig->page != NULL && ref_orig->page->pg_intl_next_leaf != NULL) {
+            //printf("enter next\n");
             *refp = ref_orig->page->pg_intl_next_leaf;  // Set refp to the next leaf page
 
-            // 打印当前page的地址和新的refp的page的地址
-            printf("Current page address: %p\n", (void *)ref_orig->page);
-            printf("New refp page address: %p\n", (void *)(*refp)->page);
+//            // 打印当前page的地址和新的refp的page的地址
+//            printf("Current page address: %p\n", (void *)ref_orig->page);
+//            printf("New refp page address: %p\n", (void *)(*refp)->page);
 
             goto done; // Directly return the next leaf page
         }
